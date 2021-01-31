@@ -33,7 +33,13 @@ type Bot struct {
 	Config      Config
 	ghClient    *github.Client
 	slackClient *slack.Client
+	activeOn    []repoName
 	stop        chan struct{}
+}
+
+type repoName struct {
+	Owner string
+	Name  string
 }
 
 // New creates a new bot
@@ -42,6 +48,18 @@ func New(cfg Config) (*Bot, error) {
 	if err != nil {
 		return nil, fmt.Errorf("GitHub config error: %w", err)
 	}
+	rs, err := ghtp.Repositories()
+	if err != nil {
+		return nil, fmt.Errorf("GitHub config error: %w", err)
+	}
+	repos := make([]repoName, len(rs))
+	for i, r := range rs {
+		repos[i] = repoName{
+			Name:  r.GetName(),
+			Owner: r.GetOwner().GetLogin(),
+		}
+	}
+
 	ghclient := github.NewClient(&http.Client{
 		Transport: ghtp,
 		Timeout:   30 * time.Second,
@@ -53,6 +71,7 @@ func New(cfg Config) (*Bot, error) {
 		Config:      cfg,
 		ghClient:    ghclient,
 		slackClient: slackClient,
+		activeOn:    repos,
 		stop:        make(chan struct{}),
 	}, nil
 }
@@ -66,8 +85,9 @@ func (b *Bot) Run() error {
 	}
 
 	go b.serveWebhook(l)
-
+	go b.maintainStaleIssues()
 	<-b.stop
+
 	return nil
 }
 
