@@ -13,6 +13,8 @@ const (
 	timeUntilStale            = 30 * 24 * time.Hour
 	timeUntilClose            = 10 * 24 * time.Hour
 	staleLabel                = "meta: stale"
+
+	noClose = true
 )
 
 func (b *Bot) maintainStaleIssues() {
@@ -59,8 +61,22 @@ func (b *Bot) maintainStaleIssues() {
 					}
 
 					age := time.Since(issue.GetUpdatedAt())
+					if age > timeUntilStale && !hasLabel {
+						log := logrus.WithField("issue", issue.GetURL())
+						_, _, err := b.ghClient.Issues.AddLabelsToIssue(ctx, repo.Owner, repo.Name, issue.GetNumber(), []string{staleLabel})
+						if err == nil {
+							log.Info("added stale label")
+						} else {
+							log.WithError(err).Warn("cannot add stale label")
+						}
+						continue
+					}
 					if hasLabel && age > timeUntilClose {
 						log := logrus.WithField("issue", issue.GetURL())
+						if noClose {
+							log.Info("would have closed this issue if it weren't for noClose")
+						}
+
 						closed := "closed"
 						_, _, err := b.ghClient.Issues.Edit(ctx, repo.Owner, repo.Name, issue.GetNumber(), &github.IssueRequest{
 							State: &closed,
@@ -71,15 +87,6 @@ func (b *Bot) maintainStaleIssues() {
 							log.WithError(err).Warn("cannot close stale issue")
 						}
 						continue
-					}
-					if age > timeUntilStale && !hasLabel {
-						log := logrus.WithField("issue", issue.GetURL())
-						_, _, err := b.ghClient.Issues.AddLabelsToIssue(ctx, repo.Owner, repo.Name, issue.GetNumber(), []string{staleLabel})
-						if err == nil {
-							log.Info("added stale label")
-						} else {
-							log.WithError(err).Warn("cannot add stale label")
-						}
 					}
 				}
 				if resp.NextPage == 0 {
