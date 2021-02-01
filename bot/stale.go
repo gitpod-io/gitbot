@@ -15,16 +15,30 @@ const (
 	labelStale                = "meta: stale"
 	labelNeverStale           = "meta: never stale"
 
+	maxOpsPerPeriod = 30
+	opsPeriod       = 24 * time.Hour
+
 	noClose = true
 )
 
 func (b *Bot) maintainStaleIssues() {
 	t := time.NewTicker(staleMaintainanceInterval)
 	defer t.Stop()
+	resetOps := time.NewTicker(opsPeriod)
+	defer resetOps.Stop()
 
+	var opsBudget int
 	for {
 		select {
 		case <-t.C:
+			if opsBudget <= 0 {
+				logrus.WithField("maxOps", maxOpsPerPeriod).WithField("period", opsPeriod).Info("ops budget is spent - not doing anything this round")
+				continue
+			}
+		case <-resetOps.C:
+			logrus.WithField("maxOps", maxOpsPerPeriod).WithField("period", opsPeriod).Info("reset ops budget")
+			opsBudget = maxOpsPerPeriod
+			continue
 		case <-b.stop:
 			break
 		}
@@ -64,7 +78,8 @@ func (b *Bot) maintainStaleIssues() {
 						log := logrus.WithField("issue", issue.GetURL())
 						_, _, err := b.ghClient.Issues.AddLabelsToIssue(ctx, repo.Owner, repo.Name, issue.GetNumber(), []string{labelStale})
 						if err == nil {
-							log.Info("added stale label")
+							opsBudget--
+							log.WithField("opsBudget", opsBudget).Info("added stale label")
 						} else {
 							log.WithError(err).Warn("cannot add stale label")
 						}
@@ -81,7 +96,8 @@ func (b *Bot) maintainStaleIssues() {
 							State: &closed,
 						})
 						if err == nil {
-							log.Info("closed stale issue")
+							opsBudget--
+							log.WithField("opsBudget", opsBudget).Info("closed stale issue")
 						} else {
 							log.WithError(err).Warn("cannot close stale issue")
 						}
