@@ -1,0 +1,36 @@
+pod:
+  serviceAccount: werft
+  nodeSelector:
+    cloud.google.com/gke-nodepool: builds
+  volumes:
+    - name: gcp-sa
+      secret:
+        secretName: gcp-sa-gitpod-dev-deployer
+  containers:
+    - name: build
+      image: eu.gcr.io/gitpod-core-dev/dev/dev-environment:cw-workspacekit.3
+      workingDir: /workspace
+      imagePullPolicy: Always
+      volumeMounts:
+        - name: gcp-sa
+          mountPath: /mnt/secrets/gcp-sa
+          readOnly: true
+      env:
+        - name: NODENAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+      command:
+        - bash
+        - -c
+        - |
+          sleep 1
+          set -Eeuo pipefail
+
+          gcloud auth activate-service-account --key-file /mnt/secrets/gcp-sa/service-account.json
+          gcloud auth configure-docker --quiet
+
+          echo "[phase|build] Build"
+          export DOCKER_HOST=tcp://$NODENAME:2375
+          docker build -t eu.gcr.io/gitpod-core-dev/dev/gitbot:{{ .Name | trimPrefix "gitbot-gitbot-" }} .
+          docker push eu.gcr.io/gitpod-core-dev/dev/gitbot:{{ .Name | trimPrefix "gitbot-gitbot-" }}
