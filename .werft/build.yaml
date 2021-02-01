@@ -30,7 +30,7 @@ pod:
           gcloud auth activate-service-account --key-file /mnt/secrets/gcp-sa/service-account.json
           gcloud auth configure-docker --quiet
 
-          echo "[phase|build] Build"
+          echo "[build|PHASE] Build"
           export DOCKER_HOST=tcp://$NODENAME:2375
           docker build -t eu.gcr.io/gitpod-core-dev/dev/gitbot:{{ .Name | trimPrefix "gitbot-gitbot-" }} .
           docker push eu.gcr.io/gitpod-core-dev/dev/gitbot:{{ .Name | trimPrefix "gitbot-gitbot-" }}
