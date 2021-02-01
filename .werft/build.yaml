@@ -32,5 +32,6 @@ pod:
 
           echo "[build|PHASE] Build"
           export DOCKER_HOST=tcp://$NODENAME:2375
-          docker build -t eu.gcr.io/gitpod-core-dev/dev/gitbot:{{ .Name | trimPrefix "gitbot-gitbot-" }} .
-          docker push eu.gcr.io/gitpod-core-dev/dev/gitbot:{{ .Name | trimPrefix "gitbot-gitbot-" }}
+          docker build -t eu.gcr.io/gitpod-core-dev/dev/gitbot:{{ .Name | trimPrefix "gitbot-build-" }} .
+          docker push eu.gcr.io/gitpod-core-dev/dev/gitbot:{{ .Name | trimPrefix "gitbot-build-" }}
+          echo "[docker|RESULT] eu.gcr.io/gitpod-core-dev/dev/gitbot:{{ .Name | trimPrefix "gitbot-build-" }}"
