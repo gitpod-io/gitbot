@@ -10,8 +10,8 @@ import (
 
 const (
 	staleMaintainanceInterval = 30 * time.Minute
-	timeUntilStale            = 30 * 24 * time.Hour
-	timeUntilClose            = 10 * 24 * time.Hour
+	timeUntilStale            = 90 * 24 * time.Hour
+	timeUntilClose            = 30 * 24 * time.Hour
 	staleLabel                = "meta: stale"
 
 	noClose = true
