@@ -11,6 +11,10 @@ import (
 	"github.com/slack-go/slack"
 )
 
+const (
+	labelReporterFeedbackNeeded = "reporter-feedback-needed"
+)
+
 func (b *Bot) handleGithubWebhook(w http.ResponseWriter, r *http.Request) {
 	var err error
 	defer func() {
@@ -56,18 +60,8 @@ func (b *Bot) handleGithubIssueCommentEvent(ctx context.Context, evt *github.Iss
 }
 
 func (b *Bot) handleReporterFeedbackNeeded(ctx context.Context, evt *github.IssueCommentEvent) error {
-	var (
-		needsReporterFeedback      bool
-		needsReporterFeedbackLabel string
-	)
-	for _, l := range evt.Issue.Labels {
-		if isReporterFeedbackNeededLabel(l) {
-			needsReporterFeedback = true
-			needsReporterFeedbackLabel = l.GetName()
-			break
-		}
-	}
-	if !needsReporterFeedback {
+	lbl, ok := hasLabel(evt.Issue.Labels, labelReporterFeedbackNeeded)
+	if !ok {
 		return nil
 	}
 
@@ -80,7 +74,7 @@ func (b *Bot) handleReporterFeedbackNeeded(ctx context.Context, evt *github.Issu
 			issueNr = evt.Issue.GetNumber()
 		)
 
-		_, err := b.ghClient.Issues.RemoveLabelForIssue(ctx, owner, repoN, issueNr, needsReporterFeedbackLabel)
+		_, err := b.ghClient.Issues.RemoveLabelForIssue(ctx, owner, repoN, issueNr, lbl)
 		if err != nil {
 			logrus.WithError(err).WithField("issue", evt.Issue.GetURL()).Warn("cannot remove reporter-feedback-needed label")
 		}
@@ -99,7 +93,7 @@ func (b *Bot) handleReporterFeedbackNeeded(ctx context.Context, evt *github.Issu
 			if ie.GetEvent() != "labeled" {
 				continue
 			}
-			if !isReporterFeedbackNeededLabel(ie.Label) {
+			if _, ok := hasLabel([]*github.Label{ie.Label}, labelReporterFeedbackNeeded); ok {
 				continue
 			}
 			if latestEvt != nil && ie.CreatedAt.Before(*latestEvt) {
@@ -143,6 +137,16 @@ func (b *Bot) handleGithubIssueEvent(ctx context.Context, evt *github.IssueEvent
 	return nil
 }
 
-func isReporterFeedbackNeededLabel(lbl *github.Label) bool {
-	return lbl != nil && strings.Contains(*lbl.Name, "reporter-feedback-needed")
+func hasLabel(lbl []*github.Label, name string) (actualName string, ok bool) {
+	for _, l := range lbl {
+		if l == nil {
+			continue
+		}
+		if !strings.Contains(l.GetName(), name) {
+			continue
+		}
+
+		return l.GetName(), true
+	}
+	return "", false
 }

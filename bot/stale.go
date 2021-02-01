@@ -12,7 +12,8 @@ const (
 	staleMaintainanceInterval = 30 * time.Minute
 	timeUntilStale            = 90 * 24 * time.Hour
 	timeUntilClose            = 30 * 24 * time.Hour
-	staleLabel                = "meta: stale"
+	labelStale                = "meta: stale"
+	labelNeverStale           = "meta: never stale"
 
 	noClose = true
 )
@@ -52,18 +53,16 @@ func (b *Bot) maintainStaleIssues() {
 						continue
 					}
 
-					var hasLabel bool
-					for _, l := range issue.Labels {
-						if l.GetName() == staleLabel {
-							hasLabel = true
-							break
-						}
+					_, isNeverStale := hasLabel(issue.Labels, labelNeverStale)
+					if isNeverStale {
+						continue
 					}
 
+					labelStale, isStaleAlready := hasLabel(issue.Labels, labelStale)
 					age := time.Since(issue.GetUpdatedAt())
-					if age > timeUntilStale && !hasLabel {
+					if age > timeUntilStale && !isStaleAlready {
 						log := logrus.WithField("issue", issue.GetURL())
-						_, _, err := b.ghClient.Issues.AddLabelsToIssue(ctx, repo.Owner, repo.Name, issue.GetNumber(), []string{staleLabel})
+						_, _, err := b.ghClient.Issues.AddLabelsToIssue(ctx, repo.Owner, repo.Name, issue.GetNumber(), []string{labelStale})
 						if err == nil {
 							log.Info("added stale label")
 						} else {
@@ -71,7 +70,7 @@ func (b *Bot) maintainStaleIssues() {
 						}
 						continue
 					}
-					if hasLabel && age > timeUntilClose {
+					if isStaleAlready && age > timeUntilClose {
 						log := logrus.WithField("issue", issue.GetURL())
 						if noClose {
 							log.Info("would have closed this issue if it weren't for noClose")
