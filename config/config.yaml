@@ -1,0 +1,5 @@
+github:
+    appID: 98450
+    installationID: 16039764
+    privateKey: "serverless_function_source_code/config/gitbot-dev.2021-04-07.private-key.pem"
+    webhookSecret: "foobar"

@@ -2,7 +2,10 @@ package bot
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -15,7 +18,7 @@ const (
 	labelReporterFeedbackNeeded = "reporter-feedback-needed"
 )
 
-func (b *Bot) handleGithubWebhook(w http.ResponseWriter, r *http.Request) {
+func (b *Bot) HandleGithubWebhook(w http.ResponseWriter, r *http.Request) {
 	var err error
 	defer func() {
 		if err == nil {
@@ -51,10 +54,102 @@ func (b *Bot) handleGithubWebhook(w http.ResponseWriter, r *http.Request) {
 }
 
 func (b *Bot) handleGithubIssueCommentEvent(ctx context.Context, evt *github.IssueCommentEvent) error {
-	err := b.handleReporterFeedbackNeeded(ctx, evt)
+	type F func(context.Context, *github.IssueCommentEvent) error
+	fs := []F{
+		b.handleReporterFeedbackNeeded,
+		b.handleEffortEstimate,
+	}
+
+	for _, f := range fs {
+		err := f(ctx, evt)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// EffortEstimate contains the lower, med, and upper bound of an effort estimate
+type EffortEstimate struct {
+	Min *float64 `json:"min,omitempty"`
+	Med *float64 `json:"med,omitempty"`
+	Max *float64 `json:"max,omitempty"`
+}
+
+func parseEffortEstimate(msg string) (est *EffortEstimate, err error) {
+	est = &EffortEstimate{}
+	lines := strings.Split(msg, "\n")
+	for _, l := range lines {
+		l = strings.TrimSpace(l)
+		if strings.HasPrefix(l, "/effort ") {
+			v, err := strconv.ParseFloat(strings.TrimSpace(strings.TrimPrefix(l, "/effort")), 32)
+			if err != nil {
+				return nil, err
+			}
+			est.Med = &v
+			continue
+		}
+		if strings.HasPrefix(l, "min ") {
+			v, err := strconv.ParseFloat(strings.TrimSpace(strings.TrimPrefix(l, "min")), 32)
+			if err != nil {
+				return nil, err
+			}
+			est.Min = &v
+			continue
+		}
+		if strings.HasPrefix(l, "max ") {
+			v, err := strconv.ParseFloat(strings.TrimSpace(strings.TrimPrefix(l, "max")), 32)
+			if err != nil {
+				return nil, err
+			}
+			est.Max = &v
+			continue
+		}
+	}
+	return
+}
+
+func (b *Bot) handleEffortEstimate(ctx context.Context, evt *github.IssueCommentEvent) (err error) {
+	cmt := evt.GetComment()
+	body := cmt.GetBody()
+	if !strings.Contains(body, "/effort") {
+		return
+	}
+
+	defer func() {
+		if err != nil {
+			body = strings.ReplaceAll(body, "/effort", "effort")
+			body = fmt.Sprintf(":X: %s\n\n---\n%s", err.Error(), body)
+		}
+
+		cmt.Body = &body
+		_, _, err = b.ghClient.Issues.EditComment(ctx, evt.GetRepo().GetOwner().GetLogin(), evt.GetRepo().GetName(), evt.GetComment().GetID(), evt.GetComment())
+	}()
+
+	est, err := parseEffortEstimate(body)
 	if err != nil {
 		return err
 	}
+
+	if est.Med == nil || *est.Med <= 0 {
+		return fmt.Errorf("most likely estimate must be greater than zero")
+	}
+	if est.Min != nil && *est.Min <= 0 {
+		return fmt.Errorf("min must be greater than zero")
+	}
+	if est.Min != nil && *est.Min >= *est.Med {
+		return fmt.Errorf("min must be less than most likely estimate")
+	}
+	if est.Max != nil && *est.Max <= *est.Med {
+		return fmt.Errorf("max must be greater than most likely estimate")
+	}
+
+	eb, err := json.MarshalIndent(est, "", "  ")
+	if err != nil {
+		return err
+	}
+	body = fmt.Sprintf("<details><summary>Effort Estimate counted. Thank You :+1:</summary><pre>\n%s\n</pre></details>", string(eb))
 
 	return nil
 }

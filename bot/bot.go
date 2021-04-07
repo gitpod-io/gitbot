@@ -1,6 +1,7 @@
 package bot
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"net/http"
@@ -45,6 +46,10 @@ type repoName struct {
 // New creates a new bot
 func New(cfg Config) (*Bot, error) {
 	ghtp, err := ghinstallation.NewKeyFromFile(http.DefaultTransport, cfg.GitHub.AppID, cfg.GitHub.InstallationID, cfg.GitHub.PrivateKeyPath)
+	if err != nil {
+		return nil, fmt.Errorf("GitHub config error: %w", err)
+	}
+	_, err = ghtp.Token(context.Background())
 	if err != nil {
 		return nil, fmt.Errorf("GitHub config error: %w", err)
 	}
@@ -93,7 +98,7 @@ func (b *Bot) Run() error {
 
 func (b *Bot) serveWebhook(l net.Listener) {
 	mux := http.NewServeMux()
-	mux.HandleFunc("/github", http.HandlerFunc(b.handleGithubWebhook))
+	mux.HandleFunc("/github", http.HandlerFunc(b.HandleGithubWebhook))
 	http.Serve(l, mux)
 
 	<-b.stop
