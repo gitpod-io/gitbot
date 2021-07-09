@@ -1,7 +1,9 @@
 plugins:
   gitpod-io/gitbot:
+    plugins:
     - config-updater
   gitpod-io/gitpod-test-repo:
+    plugins:
     - approve
     - assign
     - blunderbuss

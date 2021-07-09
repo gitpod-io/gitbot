@@ -7,4 +7,5 @@ data:
   plugins.yaml: |
     plugins:
       gitpod-io/gitbot:
+        plugins:
         - config-updater
