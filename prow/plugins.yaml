@@ -26,3 +26,14 @@ data:
         - verify-owners
         - wip
         - yuks
+
+    external_plugins:
+      "gitpod-io/gitpod-test-repo":
+      - name: groundwork
+        endpoint: http://groundwork.prow.svc.cluster.local:8787
+        events:
+        - issue_comment
+      - name: projectmanager
+        endpoint: http://projectmanager.prow.svc.cluster.local:8787
+        events:
+        - issues
