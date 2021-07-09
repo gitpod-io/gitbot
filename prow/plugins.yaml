@@ -32,6 +32,8 @@ data:
       - name: groundwork
         endpoint: http://groundwork.prow.svc.cluster.local:8787
         events:
+        - issues
+        - pull_request
         - issue_comment
       - name: projectmanager
         endpoint: http://projectmanager.prow.svc.cluster.local:8787

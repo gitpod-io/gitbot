@@ -99,3 +99,18 @@ data:
                 labels:
                   - "groundwork: scheduled"
                 state: "open"
+              - name: "In Progress"
+                org: "gitpod-io"
+                labels:
+                  - "groundwork: in progress"
+                state: "open"
+              - name: "In Review"
+                org: "gitpod-io"
+                labels:
+                  - "groundwork: in review"
+                state: "open"
+              - name: "Awaiting Deployment"
+                org: "gitpod-io"
+                labels:
+                  - "groundwork: awaiting deployment"
+                state: "open"

@@ -3,13 +3,16 @@ package main
 import (
 	"encoding/json"
 	"flag"
+	"fmt"
 	"net/http"
 	"os"
 	"regexp"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/sirupsen/logrus"
+	"sigs.k8s.io/yaml"
 
 	"k8s.io/test-infra/pkg/flagutil"
 	"k8s.io/test-infra/prow/config"
@@ -30,11 +33,20 @@ var (
 	dontScheduleRe = regexp.MustCompile(`(?mi)^/dont-schedule\s*$`)
 )
 
+type Config struct {
+	OrgsRepos map[string]RepoConfig `json:"orgsRepos"`
+}
+
+type RepoConfig struct {
+	Scheduler []string `json:"scheduler,omitempty"`
+}
+
 type options struct {
 	port       int
 	dryRun     bool
 	github     prowflagutil.GitHubOptions
 	hmacSecret string
+	configPath string
 }
 
 func (o *options) Validate() error {
@@ -53,6 +65,7 @@ func newOptions() *options {
 	fs.IntVar(&o.port, "port", 8787, "Port to listen on.")
 	fs.BoolVar(&o.dryRun, "dry-run", true, "Dry run for testing (uses API tokens but does not mutate).")
 	fs.StringVar(&o.hmacSecret, "hmac", "/etc/webhook/hmac", "Path to the file containing the GitHub HMAC secret.")
+	fs.StringVar(&o.configPath, "config", "/etc/config/config.yaml", "Path to the plugin config")
 
 	for _, group := range []flagutil.OptionGroup{&o.github} {
 		group.AddFlags(fs)
@@ -86,6 +99,16 @@ func main() {
 	logrus.SetLevel(logrus.DebugLevel)
 	log := logrus.StandardLogger().WithField("plugin", pluginName)
 
+	b, err := os.ReadFile(o.configPath)
+	if err != nil {
+		log.Fatalf("Invalid config %s: %v", o.configPath, err)
+	}
+	var cfg Config
+	if err := yaml.Unmarshal(b, &cfg); err != nil {
+		log.Fatalf("error unmarshaling %s: %v", o.configPath, err)
+	}
+	log.WithField("config", cfg).Info("loaded config")
+
 	secretAgent := &secret.Agent{}
 	if err := secretAgent.Start([]string{o.github.TokenPath, o.hmacSecret}); err != nil {
 		logrus.WithError(err).Fatal("Error starting secrets agent.")
@@ -100,6 +123,7 @@ func main() {
 		tokenGenerator: secretAgent.GetTokenGenerator(o.hmacSecret),
 		gh:             githubClient,
 		log:            log,
+		cfg:            cfg,
 	}
 
 	health := pjutil.NewHealth()
@@ -121,6 +145,7 @@ type server struct {
 	configAgent    *config.Agent
 	gh             github.Client
 	log            *logrus.Entry
+	cfg            Config
 }
 
 func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -151,10 +176,128 @@ func (s *server) handleEvent(eventType, eventGUID string, payload []byte) error 
 				s.log.WithError(err).WithFields(l.Data).Info("Error handling event.")
 			}
 		}()
+	case "issues":
+		var ic github.IssueEvent
+		if err := json.Unmarshal(payload, &ic); err != nil {
+			return err
+		}
+		go func() {
+			if err := s.handleIssueEvent(ic); err != nil {
+				s.log.WithError(err).WithFields(l.Data).Info("Error handling event.")
+			}
+		}()
+	case "pull_request":
+		var pre github.PullRequestEvent
+		if err := json.Unmarshal(payload, &pre); err != nil {
+			return err
+		}
+		go func() {
+			if err := s.handlePREvent(pre); err != nil {
+				s.log.WithError(err).WithFields(l.Data).Info("Error handling event.")
+			}
+		}()
 	default:
 		logrus.Debugf("skipping event of type %q", eventType)
 	}
 	return nil
+}
+
+func (s *server) handleIssueEvent(evt github.IssueEvent) error {
+	var (
+		org   = evt.Repo.Owner.Login
+		repo  = evt.Repo.Name
+		issue = evt.Issue.Number
+	)
+
+	switch evt.Action {
+	case github.IssueActionAssigned:
+		return s.replaceGroundworkLabel(org, repo, issue, "groundwork: in progress")
+	case github.IssueActionUnassigned:
+		return s.replaceGroundworkLabel(org, repo, issue, "groundwork: scheduled")
+	default:
+		return nil
+	}
+}
+
+func (s *server) handlePREvent(evt github.PullRequestEvent) error {
+	switch evt.Action {
+	case github.PullRequestActionReviewRequested, github.PullRequestActionClosed:
+		break
+	default:
+		return nil
+	}
+	var (
+		org  = evt.Repo.Owner.Login
+		repo = evt.Repo.Name
+	)
+
+	linkedIssues := findLinkedIssues(&evt.PullRequest)
+	s.log.WithFields(logrus.Fields{"org": org, "repo": repo, "pr": evt.PullRequest.Number, "linkedIssues": linkedIssues, "action": evt.Action}).Info("handling PR event")
+
+	var newLabel string
+	if evt.Action == github.PullRequestActionClosed {
+		if evt.PullRequest.Merged {
+			newLabel = "groundwork: awaiting deployment"
+		}
+	} else if evt.Action == github.PullRequestActionReviewRequested {
+		newLabel = "groundwork: in review"
+	}
+
+	for _, issue := range linkedIssues {
+		err := s.replaceGroundworkLabel(org, repo, issue, newLabel)
+		if err != nil {
+			s.log.WithError(err).WithField("issue", issue).Infof("cannot add \"%s\" label", newLabel)
+		}
+	}
+
+	return nil
+}
+
+func (s *server) replaceGroundworkLabel(org, repo string, issue int, newLabel string) error {
+	lbls, err := s.gh.GetIssueLabels(org, repo, issue)
+	if err != nil {
+		return err
+	}
+
+	var groundworkLabels []string
+	for _, lbl := range lbls {
+		if strings.HasPrefix(lbl.Name, "groundwork: ") {
+			groundworkLabels = append(groundworkLabels, lbl.Name)
+		}
+	}
+	if len(groundworkLabels) == 0 {
+		return nil
+	}
+
+	for _, lbl := range groundworkLabels {
+		err := s.gh.RemoveLabel(org, repo, issue, lbl)
+		if err != nil {
+			s.log.WithError(err).WithField("issue", issue).WithField("label", lbl).Warn("cannot remove label")
+		}
+	}
+
+	if newLabel != "" {
+		err = s.gh.AddLabel(org, repo, issue, newLabel)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+var fixesRe = regexp.MustCompile(`(?mi)^fixes (#|(https:\/\/github.com\/[\w-]+\/[\w-]+\/issues\/))(?P<issue>\d+)\s*$`)
+
+func findLinkedIssues(pr *github.PullRequest) []int {
+	// It would seem that there's no way to get the list of linked issues from GitHub.
+	// Boooooo.
+
+	matches := fixesRe.FindAllStringSubmatch(pr.Body, -1)
+	res := make([]int, len(matches))
+	for i, issue := range matches {
+		res[i], _ = strconv.Atoi(issue[3])
+	}
+	return res
 }
 
 func (s *server) handleIssueComment(ic github.IssueCommentEvent) error {
@@ -170,13 +313,38 @@ func (s *server) handleIssueComment(ic github.IssueCommentEvent) error {
 	repo := ic.Repo.Name
 	num := ic.Issue.Number
 
-	if scheduleRe.MatchString(ic.Comment.Body) {
-		s.gh.AddLabel(org, repo, num, "groundwork: scheduled")
-		return s.gh.CreateComment(org, repo, num, plugins.FormatICResponse(ic.Comment, "added \"groundwork: scheduled\" label"))
+	var (
+		schedule     = scheduleRe.MatchString(ic.Comment.Body)
+		dontSchedule = dontScheduleRe.MatchString(ic.Comment.Body)
+	)
+	if !schedule && !dontSchedule {
+		return nil
 	}
-	if dontScheduleRe.MatchString(ic.Comment.Body) {
-		s.gh.RemoveLabel(org, repo, num, "groundwork: scheduled")
-		return s.gh.CreateComment(org, repo, num, plugins.FormatICResponse(ic.Comment, "removed \"groundwork: scheduled\" label"))
+
+	author := ic.Comment.User.Login
+	var permitted bool
+	repocfg, ok := s.cfg.OrgsRepos[fmt.Sprintf("%s/%s", org, repo)]
+	if ok {
+		for _, u := range repocfg.Scheduler {
+			if u == author {
+				permitted = true
+				break
+			}
+		}
+	}
+	if !permitted {
+		var scheduler string
+		for _, u := range repocfg.Scheduler {
+			scheduler += fmt.Sprintf("  - %s\n", u)
+		}
+		l.WithFields(logrus.Fields{"author": author}).Info("rejecting scheduling request")
+		return s.gh.CreateComment(org, repo, num, plugins.FormatICResponse(ic.Comment, "Only scheduler can add this label. Those are:\n"+scheduler))
+	}
+
+	if schedule {
+		return s.gh.AddLabel(org, repo, num, "groundwork: scheduled")
+	} else if dontSchedule {
+		return s.gh.RemoveLabel(org, repo, num, "groundwork: scheduled")
 	}
 
 	return nil

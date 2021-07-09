@@ -44,6 +44,7 @@ spec:
             - --github-token-path=/etc/github/token
             - --github-endpoint=http://ghproxy
             - --github-endpoint=https://api.github.com
+            - --config=/etc/config/config.yaml
           ports:
             - name: http
               containerPort: 8787
@@ -53,6 +54,9 @@ spec:
               readOnly: true
             - name: github-token
               mountPath: /etc/github
+              readOnly: true
+            - name: config
+              mountPath: /etc/config
               readOnly: true
           livenessProbe:
             httpGet:
@@ -74,3 +78,19 @@ spec:
         - name: github-token
           secret:
             secretName: github-token
+        - name: config
+          configMap:
+            name: groundwork
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  namespace: prow
+  name: groundwork
+data:
+  config.yaml: |
+    orgsRepos:
+      "gitpod-io/gitpod-test-repo":
+        scheduler:
+          - csweichel
+          - ArthurSens
