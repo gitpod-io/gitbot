@@ -41,6 +41,18 @@ RUN curl -o /usr/bin/kubectx https://raw.githubusercontent.com/ahmetb/kubectx/ma
 # yq - jq for YAML files
 RUN cd /usr/bin && curl -L https://github.com/mikefarah/yq/releases/download/2.4.0/yq_linux_amd64 > yq && chmod +x yq
 
+# Bazel
+RUN apt-get install -y apt-transport-https curl gnupg && \
+    curl -fsSL https://bazel.build/bazel-release.pub.gpg | gpg --dearmor > bazel.gpg && \
+    mv bazel.gpg /etc/apt/trusted.gpg.d/ && \
+    echo "deb [arch=amd64] https://storage.googleapis.com/bazel-apt stable jdk1.8" | tee /etc/apt/sources.list.d/bazel.list && \
+    apt-get update && \
+    apt-get install -y bazel
+
+# Go
+RUN curl -L https://golang.org/dl/go1.16.5.linux-amd64.tar.gz | tar -C /usr/local -xzv
+ENV PATH=$PATH:/usr/local/go/bin
+
 ### Google Cloud ###
 # https://cloud.google.com/sdk/docs/downloads-versioned-archives
 ARG GCS_DIR=/opt/google-cloud-sdk
