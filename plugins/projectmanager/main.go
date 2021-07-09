@@ -101,19 +101,20 @@ func main() {
 		logrus.Fatalf("Invalid options: %v", err)
 	}
 
-	b, err := os.ReadFile(o.projectMgrConfig)
-	if err != nil {
-		logrus.Fatalf("Invalid config %s: %v", o.projectMgrConfig, err)
-	}
-	var mgrCfg plugins.ProjectManager
-	if err := yaml.Unmarshal(b, mgrCfg); err != nil {
-		logrus.Fatalf("error unmarshaling %s: %v", o.projectMgrConfig, err)
-	}
-
 	logrus.SetFormatter(&logrus.JSONFormatter{})
 	// todo(leodido) > use global option from the Prow config.
 	logrus.SetLevel(logrus.DebugLevel)
 	log := logrus.StandardLogger().WithField("plugin", pluginName)
+
+	b, err := os.ReadFile(o.projectMgrConfig)
+	if err != nil {
+		log.Fatalf("Invalid config %s: %v", o.projectMgrConfig, err)
+	}
+	var mgrCfg plugins.ProjectManager
+	if err := yaml.Unmarshal(b, &mgrCfg); err != nil {
+		log.Fatalf("error unmarshaling %s: %v", o.projectMgrConfig, err)
+	}
+	log.WithField("config", mgrCfg).Info("loaded config")
 
 	secretAgent := &secret.Agent{}
 	if err := secretAgent.Start([]string{o.github.TokenPath, o.hmacSecret}); err != nil {
