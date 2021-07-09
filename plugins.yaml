@@ -1,0 +1,18 @@
+plugins:
+  gitpod-io/gitbot:
+    - config-updater
+  gitpod-io/gitpod-test-repo:
+    - approve
+    - assign
+    - blunderbuss
+    - cat
+    - dog
+    - goose
+    - help
+    - heart
+    - hold
+    - label
+    - lgtm
+    - verify-owners
+    - wip
+    - yuks

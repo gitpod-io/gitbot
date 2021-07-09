@@ -14,75 +14,12 @@ metadata:
   name: config
 data:
   config.yaml: |
-    prowjob_namespace: prow
-    pod_namespace: test-pods
-
-    in_repo_config:
-      enabled:
-        "*": true
-
-    deck:
-      branding:
-        header_color: "#DADADA"
-        logo: "/static/extensions/branding/logo.png"
-      spyglass:
-        lenses:
-        - lens:
-            name: metadata
-          required_files:
-          - started.json|finished.json
-        - lens:
-            config:
-            name: buildlog
-          required_files:
-          - build-log.txt
-        - lens:
-            name: podinfo
-          required_files:
-          - podinfo.json
-
-    plank:
-      job_url_prefix_config:
-        "*": https://prow.gitpod-dev.com/view/
-      report_templates:
-        '*': >-
-            [Full PR test history](https://prow.gitpod-dev.com/pr-history?org={{.Spec.Refs.Org}}&repo={{.Spec.Refs.Repo}}&pr={{with index .Spec.Refs.Pulls 0}}{{.Number}}{{end}}).
-            [Your PR dashboard](https://prow.gitpod-dev.com/pr?query=is:pr+state:open+author:{{with
-            index .Spec.Refs.Pulls 0}}{{.Author}}{{end}}).
-      default_decoration_configs:
-        "*":
-          gcs_configuration:
-            bucket: gs://gitpod-prow-artifacts
-            path_strategy: explicit
-          gcs_credentials_secret: gcs-credentials
-          utility_images:
-            clonerefs: gcr.io/k8s-prow/clonerefs:v20210707-32dc49e04b
-            entrypoint: gcr.io/k8s-prow/entrypoint:v20210707-32dc49e04b
-            initupload: gcr.io/k8s-prow/initupload:v20210707-32dc49e04b
-            sidecar: gcr.io/k8s-prow/sidecar:v20210707-32dc49e04b
-
-    tide:
-      queries:
-      - labels:
-        - lgtm
-        - approved
-        missingLabels:
-        - needs-rebase
-        - do-not-merge/hold
-        - do-not-merge/work-in-progress
-        - do-not-merge/invalid-owners-file
-        repos:
-        - gitpod-io/gitpod-test-repo
-
-    decorate_all_jobs: true
-    # periodics:
-    # - interval: 1m
-    #   agent: kubernetes
-    #   name: echo-test
-    #   spec:
-    #     containers:
-    #     - image: alpine
-    #       command: ["/bin/date"]
+    config_updater:
+      maps:
+        config.yaml:
+          name: config
+        plugins.yaml:
+          name: plugins
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
