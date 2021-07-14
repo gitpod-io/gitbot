@@ -202,6 +202,13 @@ func (s *server) handleEvent(eventType, eventGUID string, payload []byte) error 
 	return nil
 }
 
+const (
+	labelInProgress         = "groundwork: in progress"
+	labelScheduled          = "groundwork: scheduled"
+	labelAwaitingDeployment = "groundwork: awaiting deployment"
+	labelInReview           = "groundwork: in review"
+)
+
 func (s *server) handleIssueEvent(evt github.IssueEvent) error {
 	var (
 		org   = evt.Repo.Owner.Login
@@ -211,9 +218,9 @@ func (s *server) handleIssueEvent(evt github.IssueEvent) error {
 
 	switch evt.Action {
 	case github.IssueActionAssigned:
-		return s.replaceGroundworkLabel(org, repo, issue, "groundwork: in progress")
+		return s.replaceGroundworkLabel(org, repo, issue, labelInProgress)
 	case github.IssueActionUnassigned:
-		return s.replaceGroundworkLabel(org, repo, issue, "groundwork: scheduled")
+		return s.replaceGroundworkLabel(org, repo, issue, labelScheduled)
 	default:
 		return nil
 	}
@@ -221,7 +228,7 @@ func (s *server) handleIssueEvent(evt github.IssueEvent) error {
 
 func (s *server) handlePREvent(evt github.PullRequestEvent) error {
 	switch evt.Action {
-	case github.PullRequestActionReviewRequested, github.PullRequestActionClosed:
+	case github.PullRequestActionReviewRequested, github.PullRequestActionClosed, github.PullRequestActionReadyForReview, github.PullRequestActionConvertedToDraft:
 		break
 	default:
 		return nil
@@ -237,10 +244,14 @@ func (s *server) handlePREvent(evt github.PullRequestEvent) error {
 	var newLabel string
 	if evt.Action == github.PullRequestActionClosed {
 		if evt.PullRequest.Merged {
-			newLabel = "groundwork: awaiting deployment"
+			newLabel = labelAwaitingDeployment
 		}
-	} else if evt.Action == github.PullRequestActionReviewRequested {
-		newLabel = "groundwork: in review"
+	} else if evt.Action == github.PullRequestActionReviewRequested && !evt.PullRequest.Draft {
+		newLabel = labelInReview
+	} else if evt.Action == github.PullRequestActionReadyForReview {
+		newLabel = labelInReview
+	} else if evt.Action == github.PullRequestActionConvertedToDraft {
+		newLabel = labelInProgress
 	}
 
 	for _, issue := range linkedIssues {
@@ -286,7 +297,7 @@ func (s *server) replaceGroundworkLabel(org, repo string, issue int, newLabel st
 	return nil
 }
 
-var fixesRe = regexp.MustCompile(`(?mi)^fixes (#|(https:\/\/github.com\/[\w-]+\/[\w-]+\/issues\/))(?P<issue>\d+)\s*$`)
+var fixesRe = regexp.MustCompile(`(?mi)^[fF]ixes (#|(https:\/\/github.com\/[\w-]+\/[\w-]+\/issues\/))(?P<issue>\d+)\s*$`)
 
 func findLinkedIssues(pr *github.PullRequest) []int {
 	// It would seem that there's no way to get the list of linked issues from GitHub.
