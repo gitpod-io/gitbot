@@ -88,29 +88,4 @@ metadata:
   namespace: prow
   name: projectmanager
 data:
-  config.yaml: |
-    orgsRepos:
-      "gitpod-io/gitpod-test-repo":
-        projects:
-          "Groundwork Test":
-            columns:
-              - name: "Scheduled"
-                org: "gitpod-io"
-                labels:
-                  - "groundwork: scheduled"
-                state: "open"
-              - name: "In Progress"
-                org: "gitpod-io"
-                labels:
-                  - "groundwork: in progress"
-                state: "open"
-              - name: "In Review"
-                org: "gitpod-io"
-                labels:
-                  - "groundwork: in review"
-                state: "open"
-              - name: "Awaiting Deployment"
-                org: "gitpod-io"
-                labels:
-                  - "groundwork: awaiting deployment"
-                state: "open"
+  config.yaml: "updated-by-config-updater"

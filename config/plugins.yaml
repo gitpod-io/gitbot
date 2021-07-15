@@ -39,6 +39,10 @@ config_updater:
       name: config
     config/plugins.yaml:
       name: plugins
+    config/projectmanager.yaml:
+      name: projectmanager
+    config/groundwork.yaml:
+      name: groundwork
 
 blunderbuss:
   request_count: 1

@@ -1,0 +1,5 @@
+orgsRepos:
+  "gitpod-io/gitpod-test-repo":
+    scheduler:
+      - csweichel
+      - ArthurSens
