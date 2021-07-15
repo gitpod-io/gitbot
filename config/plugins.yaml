@@ -2,6 +2,20 @@ plugins:
   gitpod-io/gitbot:
     plugins:
     - config-updater
+    - approve
+    - assign
+    - blunderbuss
+    - cat
+    - dog
+    - help
+    - heart
+    - hold
+    - label
+    - lgtm
+    - size
+    - verify-owners
+    - wip
+    - yuks
   gitpod-io/gitpod:
     plugins:
     - approve
