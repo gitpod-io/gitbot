@@ -4,8 +4,35 @@ Gitbot is the prow installation used for developing Gitpod. It automates PR hand
 It's available at https://prow.gitpod-dev.com
 
 
-### How was this installed
+## HowTo
+
+### Update the config?
+Raise a PR that makes changes to `config/config.yaml` or `config/plugins.yaml`. Once that PR is merged, prow will pick up the changes automatically.
+
+### Update the kubernetes objects?
+```bash
+gcloud auth login
+gcloud container clusters get-credentials prow --zone europe-west1-b --project gitpod-core-dev
+sh apply.sh
 ```
+
+### Update the custom plugins?
+```bash
+# set up creds for pushing the new image
+gcloud auth login
+gcloud auth configure-docker
+
+# rebuild the plugin (e.g. groundwork)
+cd plugins/groundwork
+./build.sh
+
+# restart the plugin deployment
+gcloud container clusters get-credentials prow --zone europe-west1-b --project gitpod-core-dev
+kubectl rollout restart deployment groundwork
+```
+
+### How was this installed originally
+```bash
 gcloud auth login
 gcloud config set project gitpod-core-dev
 export ZONE=europe-west1-b
