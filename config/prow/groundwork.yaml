@@ -88,9 +88,4 @@ metadata:
   namespace: prow
   name: groundwork
 data:
-  config.yaml: |
-    orgsRepos:
-      "gitpod-io/gitpod-test-repo":
-        scheduler:
-          - csweichel
-          - ArthurSens
+  config.yaml: "updated-by-config-updater"
