@@ -45,11 +45,13 @@ plank:
 tide:
   target_url: https://prow.gitpod-dev.com/tide
   merge_method:
-    gitpod-io/gitpod-test-repo: rebase
     gitpod-io/gitpod: rebase
+    gitpod-io/gitpod-test-repo: rebase
     gitpod-io/gitbot: rebase
   queries:
-  - labels:
+  - repos:
+    - gitpod-io/gitpod-test-repo
+    labels:
     - lgtm
     - approved
     missingLabels:
@@ -58,9 +60,17 @@ tide:
     - do-not-merge/hold
     - do-not-merge/work-in-progress
     - do-not-merge/invalid-owners-file
-    repos:
-    - gitpod-io/gitpod-test-repo
+  - repos:
     - gitpod-io/gitbot
+    labels:
+    - lgtm
+    - approved
+    missingLabels:
+    # no one's setting this label yet because we don't have the external needs-rebase plugin set up yet
+    - needs-rebase
+    - do-not-merge/hold
+    - do-not-merge/work-in-progress
+    - do-not-merge/invalid-owners-file
 
 sinker:
   resync_period: 1m
