@@ -228,7 +228,11 @@ func (s *server) handleIssueEvent(evt github.IssueEvent) error {
 
 func (s *server) handlePREvent(evt github.PullRequestEvent) error {
 	switch evt.Action {
-	case github.PullRequestActionReviewRequested, github.PullRequestActionClosed, github.PullRequestActionReadyForReview, github.PullRequestActionConvertedToDraft:
+	case github.PullRequestActionClosed,
+		github.PullRequestActionReadyForReview,
+		github.PullRequestActionReviewRequested,
+		github.PullRequestActionConvertedToDraft,
+		github.PullRequestActionEdited:
 		break
 	default:
 		return nil
@@ -245,12 +249,13 @@ func (s *server) handlePREvent(evt github.PullRequestEvent) error {
 	if evt.Action == github.PullRequestActionClosed {
 		if evt.PullRequest.Merged {
 			newLabel = labelAwaitingDeployment
+		} else {
+			// PR was closed without being merged - remove the groundwork label
+			newLabel = ""
 		}
-	} else if evt.Action == github.PullRequestActionReviewRequested && !evt.PullRequest.Draft {
+	} else if !evt.PullRequest.Draft && len(evt.PullRequest.RequestedReviewers) > 0 {
 		newLabel = labelInReview
-	} else if evt.Action == github.PullRequestActionReadyForReview {
-		newLabel = labelInReview
-	} else if evt.Action == github.PullRequestActionConvertedToDraft {
+	} else {
 		newLabel = labelInProgress
 	}
 
@@ -353,9 +358,9 @@ func (s *server) handleIssueComment(ic github.IssueCommentEvent) error {
 	}
 
 	if schedule {
-		return s.gh.AddLabel(org, repo, num, "groundwork: scheduled")
+		return s.gh.AddLabel(org, repo, num, labelScheduled)
 	} else if dontSchedule {
-		return s.gh.RemoveLabel(org, repo, num, "groundwork: scheduled")
+		return s.gh.CreateComment(org, repo, num, plugins.FormatICResponse(ic.Comment, "dont-schedule is not yet supported"))
 	}
 
 	return nil

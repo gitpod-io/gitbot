@@ -13,6 +13,8 @@ limitations under the License.
 
 // external plugin version of https://github.com/kubernetes/test-infra/blob/c6b7db8ad0fa9b8fc4f20eff7151ff76fa85b623/prow/plugins/projectmanager/projectmanager.go
 
+// TODO(cw): remove cards from the project if they don't match any of the columns
+
 package main
 
 import (
