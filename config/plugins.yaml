@@ -2,6 +2,22 @@ plugins:
   gitpod-io/gitbot:
     plugins:
     - config-updater
+  gitpod-io/gitpod:
+    plugins:
+    - approve
+    - assign
+    - blunderbuss
+    - cat
+    - dog
+    - help
+    - heart
+    - hold
+    - label
+    - lgtm
+    - size
+    - verify-owners
+    - wip
+    - yuks
   gitpod-io/gitpod-test-repo:
     plugins:
     - approve
@@ -21,6 +37,17 @@ plugins:
     - yuks
 
 external_plugins:
+  "gitpod-io/gitpod":
+  - name: groundwork
+    endpoint: http://groundwork.prow.svc.cluster.local:8787
+    events:
+    - issues
+    - pull_request
+    - issue_comment
+  - name: projectmanager
+    endpoint: http://projectmanager.prow.svc.cluster.local:8787
+    events:
+    - issues
   "gitpod-io/gitpod-test-repo":
   - name: groundwork
     endpoint: http://groundwork.prow.svc.cluster.local:8787
