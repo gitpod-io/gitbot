@@ -1,5 +1,10 @@
 orgsRepos:
+  "gitpod-io/gitpod":
+    scheduler:
+      - csweichel
+      - JanKoehnlein
   "gitpod-io/gitpod-test-repo":
     scheduler:
       - csweichel
       - ArthurSens
+      - leodido
