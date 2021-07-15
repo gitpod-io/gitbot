@@ -44,7 +44,7 @@ spec:
             - --github-token-path=/etc/github/token
             - --github-endpoint=http://ghproxy
             - --github-endpoint=https://api.github.com
-            - --mgr-config=/etc/config/config.yaml
+            - --mgr-config=/etc/config/projectmanager.yaml
           ports:
             - name: http
               containerPort: 8787
@@ -81,11 +81,3 @@ spec:
         - name: config
           configMap:
             name: projectmanager
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  namespace: prow
-  name: projectmanager
-data:
-  config.yaml: "updated-by-config-updater"
