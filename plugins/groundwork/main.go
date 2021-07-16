@@ -320,7 +320,6 @@ func (s *server) handleIssueComment(ic github.IssueCommentEvent) error {
 	l := s.log.WithFields(logrus.Fields{
 		"body": ic.Comment.Body,
 	})
-	l.Info("handleIssueComment called")
 	if ic.Action != github.IssueCommentActionCreated || ic.Issue.State == "closed" {
 		return nil
 	}

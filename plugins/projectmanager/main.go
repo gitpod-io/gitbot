@@ -18,9 +18,11 @@ limitations under the License.
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"strconv"
@@ -39,7 +41,6 @@ import (
 	"k8s.io/test-infra/prow/pjutil"
 	"k8s.io/test-infra/prow/pluginhelp"
 	"k8s.io/test-infra/prow/pluginhelp/externalplugins"
-	"k8s.io/test-infra/prow/plugins"
 )
 
 const pluginName = "project-manager"
@@ -97,6 +98,39 @@ func helpProvider(enabledRepos []config.OrgRepo) (*pluginhelp.PluginHelp, error)
 	return pluginHelp, nil
 }
 
+// ProjectManager represents the config for the ProjectManager plugin, holding top
+// level config options, configuration is a hierarchial structure with top level element
+// being org or org/repo with the list of projects as its children
+type ProjectManager struct {
+	OrgRepos map[string]ManagedOrgRepo `json:"orgsRepos,omitempty"`
+}
+
+// ManagedOrgRepo is used by the ProjectManager plugin to represent an Organisation
+// or Repository with a list of Projects
+type ManagedOrgRepo struct {
+	FromRepos []string                  `json:"fromRepos,omitempty"`
+	Projects  map[string]ManagedProject `json:"projects,omitempty"`
+}
+
+// ManagedProject is used by the ProjectManager plugin to represent a Project
+// with a list of Columns
+type ManagedProject struct {
+	Columns []ManagedColumn `json:"columns,omitempty"`
+}
+
+// ManagedColumn is used by the ProjectQueries plugin to represent a project column
+// and the conditions to add a PR to that column
+type ManagedColumn struct {
+	// Either of ID or Name should be specified
+	ID *int `json:"id,omitempty"`
+	// State must be open, closed or all
+	State string `json:"state,omitempty"`
+	// all the labels here should match to the incoming event to be bale to add the card to the project
+	Labels []string `json:"labels,omitempty"`
+	// Configuration is effective is the issue events repo/Owner/Login matched the org
+	Org string `json:"org,omitempty"`
+}
+
 func main() {
 	o := newOptions()
 	if err := o.Validate(); err != nil {
@@ -112,7 +146,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Invalid config %s: %v", o.projectMgrConfig, err)
 	}
-	var mgrCfg plugins.ProjectManager
+	var mgrCfg ProjectManager
 	if err := yaml.Unmarshal(b, &mgrCfg); err != nil {
 		log.Fatalf("error unmarshaling %s: %v", o.projectMgrConfig, err)
 	}
@@ -129,10 +163,11 @@ func main() {
 	}
 
 	serv := &server{
-		tokenGenerator: secretAgent.GetTokenGenerator(o.hmacSecret),
-		gh:             githubClient,
-		log:            log,
-		mgrCfg:         mgrCfg,
+		eventTokenGenerator:  secretAgent.GetTokenGenerator(o.hmacSecret),
+		githubTokenGenerator: secretAgent.GetTokenGenerator(o.github.TokenPath),
+		gh:                   githubClient,
+		log:                  log,
+		mgrCfg:               mgrCfg,
 	}
 
 	health := pjutil.NewHealth()
@@ -150,15 +185,16 @@ func main() {
 }
 
 type server struct {
-	tokenGenerator func() []byte
-	configAgent    *config.Agent
-	gh             github.Client
-	log            *logrus.Entry
-	mgrCfg         plugins.ProjectManager
+	eventTokenGenerator  func() []byte
+	githubTokenGenerator func() []byte
+	configAgent          *config.Agent
+	gh                   github.Client
+	log                  *logrus.Entry
+	mgrCfg               ProjectManager
 }
 
 func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	eventType, eventGUID, payload, ok, _ := github.ValidateWebhook(w, r, s.tokenGenerator)
+	eventType, eventGUID, payload, ok, _ := github.ValidateWebhook(w, r, s.eventTokenGenerator)
 	if !ok {
 		return
 	}
@@ -237,14 +273,13 @@ func (s *server) handleIssueOrPullRequest(ie github.IssueEvent, l *logrus.Entry)
 		remove: ie.Action == github.IssueActionUnlabeled,
 	}
 
-	return handle(s.gh, s.mgrCfg, l, eventData)
+	return s.updateMatchingColumn(eventData, l)
 }
 
-func handle(gc githubClient, projectManager plugins.ProjectManager, log *logrus.Entry, e eventData) error {
-	return updateMatchingColumn(gc, projectManager.OrgRepos, e, log)
-}
+func (s *server) updateMatchingColumn(e eventData, log *logrus.Entry) error {
+	gc := s.gh
+	orgRepos := s.mgrCfg.OrgRepos
 
-func updateMatchingColumn(gc githubClient, orgRepos map[string]plugins.ManagedOrgRepo, e eventData, log *logrus.Entry) error {
 	var err error
 	// Don't use GetIssueLabels unless it's required and keep track of whether the labels have been fetched to avoid unnecessary API usage.
 	if len(e.labels) == 0 {
@@ -256,8 +291,22 @@ func updateMatchingColumn(gc githubClient, orgRepos map[string]plugins.ManagedOr
 
 	issueURL := fmt.Sprintf("https://api.github.com/repos/%s/%s/issues/%v", e.org, e.repo, e.number)
 	for orgRepoName, managedOrgRepo := range orgRepos {
+		var matchesFromRepo bool
+		for _, r := range managedOrgRepo.FromRepos {
+			if r == e.org+"/"+e.repo {
+				matchesFromRepo = true
+				break
+			}
+		}
+		if !matchesFromRepo && len(managedOrgRepo.FromRepos) > 0 {
+			continue
+		}
+
 		for projectName, managedProject := range managedOrgRepo.Projects {
 			for _, managedColumn := range managedProject.Columns {
+				if managedColumn.ID == nil {
+					log.Infof("Ignoring column: {%v}, has no columnID", managedColumn, e.number, e.org)
+				}
 				// Org is not specified or does not match we just ignore processing this column
 				if managedColumn.Org == "" || managedColumn.Org != e.org {
 					log.Infof("Ignoring column: {%v}, for issue/PR: %d, due to org: %v", managedColumn, e.number, e.org)
@@ -277,29 +326,20 @@ func updateMatchingColumn(gc githubClient, orgRepos map[string]plugins.ManagedOr
 					continue
 				}
 
-				var (
-					cardID   *int
-					columnID *int
-				)
-
-				var err error
-				columnID, cardID, err = getColumnID(gc, orgRepoName, projectName, managedColumn.Name, issueURL)
+				cardID, err := findCard(gc, orgRepoName, projectName, issueURL)
 				if err != nil {
-					log.Infof("Cannot add the issue/PR: %d to the project: %s, column: %s, error: %s", e.number, projectName, managedColumn.Name, err)
+					log.Infof("Cannot add the issue/PR: %d to the project: %s, column: %s, error: %s", e.number, projectName, managedColumn.ID, err)
 					break
-				}
-				if columnID == nil {
-					continue
 				}
 
 				if cardID == nil {
-					err = addIssueToColumn(gc, *columnID, e)
+					err = addIssueToColumn(gc, *managedColumn.ID, e)
 				} else {
-					err = gc.MoveProjectCard(e.org, *cardID, *columnID)
+					err = moveProjectCard(s.githubTokenGenerator, e.org, *cardID, *managedColumn.ID, "bottom")
 				}
 				if err != nil {
 					log.WithError(err).WithFields(logrus.Fields{
-						"matchedColumnID": *columnID,
+						"matchedColumnID": *managedColumn.ID,
 					}).Error(failedToAddProjectCard)
 				}
 
@@ -310,9 +350,7 @@ func updateMatchingColumn(gc githubClient, orgRepos map[string]plugins.ManagedOr
 	return err
 }
 
-// getColumnID returns a column id only if the issue if the project and column name provided are valid
-// and the issue is not already in the project
-func getColumnID(gc githubClient, orgRepoName, projectName, columnName, issueURL string) (col *int, existingCard *int, err error) {
+func findCard(gc githubClient, orgRepoName, projectName, issueURL string) (existingCard *int, err error) {
 	var projects []github.Project
 	orgRepoParts := strings.Split(orgRepoName, "/")
 	switch len(orgRepoParts) {
@@ -333,31 +371,25 @@ func getColumnID(gc githubClient, orgRepoName, projectName, columnName, issueURL
 		if project.Name == projectName {
 			columns, err := gc.GetProjectColumns(orgRepoParts[0], project.ID)
 			if err != nil {
-				return nil, nil, err
+				return nil, err
 			}
 
 			for _, column := range columns {
 				cards, err := gc.GetColumnProjectCards(orgRepoParts[0], column.ID)
 				if err != nil {
-					return nil, nil, err
+					return nil, err
 				}
 
 				for _, card := range cards {
 					if card.ContentURL == issueURL {
 						cid := card.ID
-						existingCard = &cid
+						return &cid, nil
 					}
 				}
 			}
-			for _, column := range columns {
-				if column.Name == columnName {
-					return &column.ID, existingCard, nil
-				}
-			}
-			return nil, nil, fmt.Errorf("could not find column %s in project %s", columnName, projectName)
 		}
 	}
-	return nil, nil, fmt.Errorf("could not find project %s in org/repo %s", projectName, orgRepoName)
+	return nil, nil
 }
 
 func addIssueToColumn(gc githubClient, columnID int, e eventData) error {
@@ -371,4 +403,57 @@ func addIssueToColumn(gc githubClient, columnID int, e eventData) error {
 	projectCard.ContentID = e.id
 	_, err := gc.CreateProjectCard(e.org, columnID, projectCard)
 	return err
+}
+
+func moveProjectCard(tokenGenerator func() []byte, org string, cardID, columnID int, position string) error {
+	reqParams := struct {
+		Position string `json:"position"`
+		ColumnID int    `json:"column_id"`
+	}{position, columnID}
+	body, err := json.Marshal(reqParams)
+	if err != nil {
+		return err
+	}
+
+	req, err := http.NewRequest("POST", fmt.Sprintf("https://api.github.com/projects/columns/cards/%d/moves", cardID), bytes.NewReader(body))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Authorization", authHeader(tokenGenerator))
+	req.Header.Set("Accept", "application/vnd.github.inertia-preview+json")
+	// Disable keep-alive so that we don't get flakes when GitHub closes the
+	// connection prematurely.
+	// https://go-review.googlesource.com/#/c/3210/ fixed it for GET, but not
+	// for POST.
+	req.Close = true
+
+	client := http.Client{
+		Timeout: 30 * time.Second,
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
+		b, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return err
+		}
+		return fmt.Errorf("moveProjectCard: non-20x GitHub response (%d): %s", resp.StatusCode, string(b))
+	}
+
+	return nil
+}
+
+func authHeader(tokenSource func() []byte) string {
+	if tokenSource == nil {
+		return ""
+	}
+	token := tokenSource()
+	if len(token) == 0 {
+		return ""
+	}
+	return fmt.Sprintf("Bearer %s", token)
 }
