@@ -50,6 +50,17 @@ tide:
     gitpod-io/gitbot: rebase
   queries:
   - repos:
+    - gitpod-io/gitpod
+    labels:
+    - lgtm
+    - approved
+    missingLabels:
+    # no one's setting this label yet because we don't have the external needs-rebase plugin set up yet
+    - needs-rebase
+    - do-not-merge/hold
+    - do-not-merge/work-in-progress
+    - do-not-merge/invalid-owners-file
+  - repos:
     - gitpod-io/gitpod-test-repo
     labels:
     - lgtm
