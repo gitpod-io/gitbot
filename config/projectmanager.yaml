@@ -1,5 +1,7 @@
 orgsRepos:
   "gitpod-io":
+    fromRepos:
+    - gitpod-io/gitpod
     projects:
       "Engineering Groundwork":
         columns:
@@ -27,22 +29,22 @@ orgsRepos:
     projects:
       "Groundwork Test":
         columns:
-          - name: "Scheduled"
+          - id: 15074318
             org: "gitpod-io"
             labels:
               - "groundwork: scheduled"
             state: "open"
-          - name: "In Progress"
+          - id: 15074320
             org: "gitpod-io"
             labels:
               - "groundwork: in progress"
             state: "open"
-          - name: "In Review"
+          - id: 15074324
             org: "gitpod-io"
             labels:
               - "groundwork: in review"
             state: "open"
-          - name: "Awaiting Deployment"
+          - id: 15074325
             org: "gitpod-io"
             labels:
               - "groundwork: awaiting deployment"
