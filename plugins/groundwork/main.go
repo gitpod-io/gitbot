@@ -11,9 +11,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sirupsen/logrus"
-	"sigs.k8s.io/yaml"
+	"github.com/gitpod-io/gitbot/common"
 
+	"github.com/sirupsen/logrus"
 	"k8s.io/test-infra/pkg/flagutil"
 	"k8s.io/test-infra/prow/config"
 	"k8s.io/test-infra/prow/config/secret"
@@ -24,6 +24,7 @@ import (
 	"k8s.io/test-infra/prow/pluginhelp"
 	"k8s.io/test-infra/prow/pluginhelp/externalplugins"
 	"k8s.io/test-infra/prow/plugins"
+	"sigs.k8s.io/yaml"
 )
 
 const pluginName = "groundwork"
@@ -38,7 +39,15 @@ type Config struct {
 }
 
 type RepoConfig struct {
-	Scheduler []string `json:"scheduler,omitempty"`
+	Columns         ColumnConfig `json:"columns"`
+	FreeForAllLimit int          `json:"freeForAllLimit"`
+	TotalLimit      *int         `json:"totalLimit"`
+	Scheduler       []string     `json:"scheduler,omitempty"`
+}
+
+type ColumnConfig struct {
+	Inbox     *int `json:"inbox,omitempty"`
+	Scheduled *int `json:"scheduled,omitempty"`
 }
 
 type options struct {
@@ -120,10 +129,11 @@ func main() {
 	}
 
 	serv := &server{
-		tokenGenerator: secretAgent.GetTokenGenerator(o.hmacSecret),
-		gh:             githubClient,
-		log:            log,
-		cfg:            cfg,
+		tokenGenerator:       secretAgent.GetTokenGenerator(o.hmacSecret),
+		githubTokenGenerator: secretAgent.GetTokenGenerator(o.github.TokenPath),
+		gh:                   githubClient,
+		log:                  log,
+		cfg:                  cfg,
 	}
 
 	health := pjutil.NewHealth()
@@ -141,11 +151,11 @@ func main() {
 }
 
 type server struct {
-	tokenGenerator func() []byte
-	configAgent    *config.Agent
-	gh             github.Client
-	log            *logrus.Entry
-	cfg            Config
+	tokenGenerator       func() []byte
+	githubTokenGenerator func() []byte
+	gh                   github.Client
+	log                  *logrus.Entry
+	cfg                  Config
 }
 
 func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -207,6 +217,9 @@ const (
 	labelScheduled          = "groundwork: scheduled"
 	labelAwaitingDeployment = "groundwork: awaiting deployment"
 	labelInReview           = "groundwork: in review"
+
+	labelPrioHighest = "priority: highest (user impact)"
+	labelPrioHigh    = "priority: high (dev loop impact)"
 )
 
 func (s *server) handleIssueEvent(evt github.IssueEvent) error {
@@ -328,6 +341,11 @@ func (s *server) handleIssueComment(ic github.IssueCommentEvent) error {
 	repo := ic.Repo.Name
 	num := ic.Issue.Number
 
+	repocfg, ok := s.cfg.OrgsRepos[fmt.Sprintf("%s/%s", org, repo)]
+	if !ok {
+		return nil
+	}
+
 	var (
 		schedule     = scheduleRe.MatchString(ic.Comment.Body)
 		dontSchedule = dontScheduleRe.MatchString(ic.Comment.Body)
@@ -336,10 +354,17 @@ func (s *server) handleIssueComment(ic github.IssueCommentEvent) error {
 		return nil
 	}
 
+	scheduledCards, err := s.gh.GetColumnProjectCards(org, *repocfg.Columns.Scheduled)
+	if err != nil {
+		return err
+	}
+	cardCount := len(scheduledCards)
+
 	author := ic.Comment.User.Login
 	var permitted bool
-	repocfg, ok := s.cfg.OrgsRepos[fmt.Sprintf("%s/%s", org, repo)]
-	if ok {
+	if cardCount < repocfg.FreeForAllLimit {
+		permitted = true
+	} else {
 		for _, u := range repocfg.Scheduler {
 			if u == author {
 				permitted = true
@@ -353,11 +378,53 @@ func (s *server) handleIssueComment(ic github.IssueCommentEvent) error {
 			scheduler += fmt.Sprintf("  - %s\n", u)
 		}
 		l.WithFields(logrus.Fields{"author": author}).Info("rejecting scheduling request")
-		return s.gh.CreateComment(org, repo, num, plugins.FormatICResponse(ic.Comment, "Only scheduler can add this label. Those are:\n"+scheduler))
+		return s.gh.CreateComment(org, repo, num, plugins.FormatICResponse(ic.Comment, fmt.Sprintf("We have more than %d cards scheduled. Above %d only scheduler can perform this action. Those are:\n"+scheduler, cardCount, repocfg.FreeForAllLimit)))
+	}
+
+	if repocfg.TotalLimit != nil && cardCount > *repocfg.TotalLimit {
+		return s.gh.CreateComment(org, repo, num, plugins.FormatICResponse(ic.Comment, fmt.Sprintf("Cannot schedule issue - scheduled items limit (%d) has been reached.", *repocfg.TotalLimit)))
 	}
 
 	if schedule {
-		return s.gh.AddLabel(org, repo, num, labelScheduled)
+		err := s.gh.AddLabel(org, repo, num, labelScheduled)
+		if err != nil {
+			return err
+		}
+
+		cardID, err := common.FindCardByIssueURL(s.gh, ic.Repo.Owner.Login, ic.Repo.Name, ic.Issue.Number, *repocfg.Columns.Inbox)
+		if err != nil {
+			return err
+		}
+
+		if cardID == nil {
+			// card is not part of the project yet
+			card, err := s.gh.CreateProjectCard(org, *repocfg.Columns.Scheduled, github.ProjectCard{
+				ContentType: "Issue",
+				ContentID:   ic.Issue.ID,
+			})
+			if err == nil {
+				cardID = &card.ID
+			} else {
+				logrus.WithError(err).Warn("card creation failed - will try to move irregardless")
+
+				// bug in test-infra Github client: card creation succeeds, but error and no response is returned
+				cardID, _ = common.FindCardByIssueURL(s.gh, ic.Repo.Owner.Login, ic.Repo.Name, ic.Issue.Number, *repocfg.Columns.Inbox)
+			}
+		}
+
+		if cardID == nil {
+			return nil
+		}
+
+		var position = "bottom"
+		for _, l := range ic.Issue.Labels {
+			if l.Name == labelPrioHigh || l.Name == labelPrioHighest {
+				position = "top"
+				break
+			}
+		}
+
+		return common.MoveProjectCard(s.githubTokenGenerator, org, *cardID, *repocfg.Columns.Scheduled, position)
 	} else if dontSchedule {
 		return s.gh.CreateComment(org, repo, num, plugins.FormatICResponse(ic.Comment, "dont-schedule is not yet supported"))
 	}

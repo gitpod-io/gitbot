@@ -1,9 +1,19 @@
 orgsRepos:
   "gitpod-io/gitpod":
+    columns:
+      inbox: 14795239
+      scheduled: 14782120
+    freeForAllLimit: 15
+    totalLimit: 25
     scheduler:
       - csweichel
       - JanKoehnlein
   "gitpod-io/gitpod-test-repo":
+    columns:
+      inbox: 15074317
+      scheduled: 15074318
+    freeForAllLimit: 15
+    totalLimit: 3
     scheduler:
       - csweichel
       - ArthurSens
