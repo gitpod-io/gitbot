@@ -18,17 +18,15 @@ limitations under the License.
 package main
 
 import (
-	"bytes"
 	"encoding/json"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"strconv"
-	"strings"
 	"time"
 
+	"github.com/gitpod-io/gitbot/common"
 	"github.com/sirupsen/logrus"
 	"sigs.k8s.io/yaml"
 
@@ -235,7 +233,6 @@ type githubClient interface {
 	GetProjectColumns(org string, projectID int) ([]github.ProjectColumn, error)
 	GetColumnProjectCards(org string, columnID int) ([]github.ProjectCard, error)
 	CreateProjectCard(org string, columnID int, projectCard github.ProjectCard) (*github.ProjectCard, error)
-	MoveProjectCard(org string, projectCardID int, newColumnID int) error
 }
 
 type eventData struct {
@@ -262,7 +259,15 @@ func (s *server) handleIssueOrPullRequest(ie github.IssueEvent, l *logrus.Entry)
 	if !handleIssueActions[ie.Action] {
 		return nil
 	}
-	eventData := eventData{
+
+	return s.updateMatchingColumn(ie, l)
+}
+
+func (s *server) updateMatchingColumn(ie github.IssueEvent, log *logrus.Entry) error {
+	gc := s.gh
+	orgRepos := s.mgrCfg.OrgRepos
+
+	e := eventData{
 		id:     ie.Issue.ID,
 		number: ie.Issue.Number,
 		isPR:   ie.Issue.IsPullRequest(),
@@ -273,13 +278,6 @@ func (s *server) handleIssueOrPullRequest(ie github.IssueEvent, l *logrus.Entry)
 		remove: ie.Action == github.IssueActionUnlabeled,
 	}
 
-	return s.updateMatchingColumn(eventData, l)
-}
-
-func (s *server) updateMatchingColumn(e eventData, log *logrus.Entry) error {
-	gc := s.gh
-	orgRepos := s.mgrCfg.OrgRepos
-
 	var err error
 	// Don't use GetIssueLabels unless it's required and keep track of whether the labels have been fetched to avoid unnecessary API usage.
 	if len(e.labels) == 0 {
@@ -289,7 +287,6 @@ func (s *server) updateMatchingColumn(e eventData, log *logrus.Entry) error {
 		}
 	}
 
-	issueURL := fmt.Sprintf("https://api.github.com/repos/%s/%s/issues/%v", e.org, e.repo, e.number)
 	for orgRepoName, managedOrgRepo := range orgRepos {
 		var matchesFromRepo bool
 		for _, r := range managedOrgRepo.FromRepos {
@@ -326,7 +323,7 @@ func (s *server) updateMatchingColumn(e eventData, log *logrus.Entry) error {
 					continue
 				}
 
-				cardID, err := findCard(gc, orgRepoName, projectName, issueURL)
+				cardID, err := common.FindCardByIssueURL(gc, orgRepoName, projectName, e.number, *managedColumn.ID)
 				if err != nil {
 					log.Infof("Cannot add the issue/PR: %d to the project: %s, column: %s, error: %s", e.number, projectName, managedColumn.ID, err)
 					break
@@ -335,7 +332,7 @@ func (s *server) updateMatchingColumn(e eventData, log *logrus.Entry) error {
 				if cardID == nil {
 					err = addIssueToColumn(gc, *managedColumn.ID, e)
 				} else {
-					err = moveProjectCard(s.githubTokenGenerator, e.org, *cardID, *managedColumn.ID, "bottom")
+					err = common.MoveProjectCard(s.githubTokenGenerator, e.org, *cardID, *managedColumn.ID, "bottom")
 				}
 				if err != nil {
 					log.WithError(err).WithFields(logrus.Fields{
@@ -350,48 +347,6 @@ func (s *server) updateMatchingColumn(e eventData, log *logrus.Entry) error {
 	return err
 }
 
-func findCard(gc githubClient, orgRepoName, projectName, issueURL string) (existingCard *int, err error) {
-	var projects []github.Project
-	orgRepoParts := strings.Split(orgRepoName, "/")
-	switch len(orgRepoParts) {
-	case 2:
-		projects, err = gc.GetRepoProjects(orgRepoParts[0], orgRepoParts[1])
-	case 1:
-		projects, err = gc.GetOrgProjects(orgRepoParts[0])
-	default:
-		err = fmt.Errorf("could not determine org or org/repo from %s", orgRepoName)
-		return
-	}
-
-	if err != nil {
-		return
-	}
-
-	for _, project := range projects {
-		if project.Name == projectName {
-			columns, err := gc.GetProjectColumns(orgRepoParts[0], project.ID)
-			if err != nil {
-				return nil, err
-			}
-
-			for _, column := range columns {
-				cards, err := gc.GetColumnProjectCards(orgRepoParts[0], column.ID)
-				if err != nil {
-					return nil, err
-				}
-
-				for _, card := range cards {
-					if card.ContentURL == issueURL {
-						cid := card.ID
-						return &cid, nil
-					}
-				}
-			}
-		}
-	}
-	return nil, nil
-}
-
 func addIssueToColumn(gc githubClient, columnID int, e eventData) error {
 	// Create project card and add this PR
 	projectCard := github.ProjectCard{}
@@ -403,57 +358,4 @@ func addIssueToColumn(gc githubClient, columnID int, e eventData) error {
 	projectCard.ContentID = e.id
 	_, err := gc.CreateProjectCard(e.org, columnID, projectCard)
 	return err
-}
-
-func moveProjectCard(tokenGenerator func() []byte, org string, cardID, columnID int, position string) error {
-	reqParams := struct {
-		Position string `json:"position"`
-		ColumnID int    `json:"column_id"`
-	}{position, columnID}
-	body, err := json.Marshal(reqParams)
-	if err != nil {
-		return err
-	}
-
-	req, err := http.NewRequest("POST", fmt.Sprintf("https://api.github.com/projects/columns/cards/%d/moves", cardID), bytes.NewReader(body))
-	if err != nil {
-		return err
-	}
-	req.Header.Set("Authorization", authHeader(tokenGenerator))
-	req.Header.Set("Accept", "application/vnd.github.inertia-preview+json")
-	// Disable keep-alive so that we don't get flakes when GitHub closes the
-	// connection prematurely.
-	// https://go-review.googlesource.com/#/c/3210/ fixed it for GET, but not
-	// for POST.
-	req.Close = true
-
-	client := http.Client{
-		Timeout: 30 * time.Second,
-	}
-	resp, err := client.Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
-		b, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			return err
-		}
-		return fmt.Errorf("moveProjectCard: non-20x GitHub response (%d): %s", resp.StatusCode, string(b))
-	}
-
-	return nil
-}
-
-func authHeader(tokenSource func() []byte) string {
-	if tokenSource == nil {
-		return ""
-	}
-	token := tokenSource()
-	if len(token) == 0 {
-		return ""
-	}
-	return fmt.Sprintf("Bearer %s", token)
 }

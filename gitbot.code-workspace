@@ -1,0 +1,16 @@
+{
+    "folders": [
+       { "path": "." },
+       { "path": "plugins/common" },
+       { "path": "plugins/groundwork" },
+       { "path": "plugins/projectmanager" }
+    ],
+    "settings": {
+       "go.formatTool": "goimports",
+       "go.useLanguageServer": true,
+       "gopls": {
+          "allowModfileModifications": true
+       }
+    }
+ }
+ 
