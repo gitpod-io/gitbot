@@ -1,12 +1,12 @@
 approve:
   - repos:
       - gitpod-io/gitbot
-    require_self_approval: false
+    require_self_approval: true
     lgtm_acts_as_approve: true
     commandHelpLink: https://prow.gitpod-dev.com/command-help
   - repos:
       - gitpod-io/gitpod
-    require_self_approval: false
+    require_self_approval: true
     lgtm_acts_as_approve: true
     issue_required: true
     commandHelpLink: https://prow.gitpod-dev.com/command-help
