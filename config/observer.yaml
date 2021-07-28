@@ -1,0 +1,12 @@
+bigquery:
+  credentials: /etc/bigquery/service-account.json
+  projectID: gitpod-core-dev
+  dataset: eng_groundwork
+orgsRepos:
+  "gitpod-io":
+    fromRepos:
+    - gitpod-io/gitpod
+    projects:
+      3:
+        excludeColumns:
+          - "Done"
