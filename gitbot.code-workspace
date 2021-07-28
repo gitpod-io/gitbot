@@ -3,7 +3,8 @@
        { "path": "." },
        { "path": "plugins/common" },
        { "path": "plugins/groundwork" },
-       { "path": "plugins/projectmanager" }
+       { "path": "plugins/projectmanager" },
+       { "path": "plugins/customlabels" }
     ],
     "settings": {
        "go.formatTool": "goimports",
