@@ -64,7 +64,6 @@ plugins:
     - help
     - heart
     - hold
-    - label
     - lgtm
     - size
     - verify-owners
@@ -77,8 +76,8 @@ external_plugins:
     endpoint: http://groundwork.prow.svc.cluster.local:8787
     events:
     - issues
-    - pull_request
     - issue_comment
+    - pull_request
   - name: projectmanager
     endpoint: http://projectmanager.prow.svc.cluster.local:8787
     events:
@@ -94,6 +93,12 @@ external_plugins:
     endpoint: http://projectmanager.prow.svc.cluster.local:8787
     events:
     - issues
+  - name: customlabels
+    endpoint: http://customlabels.prow.svc.cluster.local:8787
+    events:
+    - issues
+    - issue_comment
+    - pull_request
 
 config_updater:
   maps:
@@ -105,6 +110,8 @@ config_updater:
       name: projectmanager
     config/groundwork.yaml:
       name: groundwork
+    config/customlabels.yaml:
+      name: customlabels
 
 blunderbuss:
   request_count: 1
