@@ -94,7 +94,7 @@ func main() {
 	}
 
 	logrus.SetFormatter(&logrus.JSONFormatter{})
-	// todo(leodido) > use global option from the Prow config.
+	// TODO(leodido) > use global option from the Prow config.
 	logrus.SetLevel(logrus.DebugLevel)
 	log := logrus.StandardLogger().WithField("plugin", pluginName)
 
@@ -113,8 +113,10 @@ func main() {
 	matchers := conf.getMatchers()
 	supported := conf.getLabels()
 	if len(matchers) == 0 || len(supported) == 0 {
-		// TODO > throw error
+		log.Fatalf("Missing matchers or/and definition of supported labels")
 	}
+	log.WithField("matchers", matchers).Info("Matchers loaded")
+	log.WithField("labels", supported).Info("Supported labels")
 
 	// Start secrets agent
 	secretAgent := &secret.Agent{}
@@ -150,4 +152,5 @@ func main() {
 
 	defer interrupts.WaitForGracefulShutdown()
 	interrupts.ListenAndServe(httpServer, 5*time.Second)
+	log.WithField("port", o.port).Info("Serving...")
 }
