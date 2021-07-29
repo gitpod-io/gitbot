@@ -1,12 +1,12 @@
 package main
 
 import (
-	"fmt"
 	"flag"
 	"time"
+	"os"
 
 	"github.com/sirupsen/logrus"
-
+	"k8s.io/test-infra/pkg/flagutil"
 	pluginsflagutil "k8s.io/test-infra/prow/flagutil/plugins"
 	prowflagutil "k8s.io/test-infra/prow/flagutil"
 )
@@ -40,7 +40,7 @@ func newOptions() options {
 	}
 	fs.Parse(os.Args[1:])
 
-	return &o
+	return o
 }
 
 func main() {

@@ -13,10 +13,60 @@ import (
 const (
 	PluginName = "postmortem-reminder"
 	reminderMessage = "We're susceptible to another incident while this issue isn't solved. Please solve it or close if it doesn't make sense anymore."
-	labelPostMortem = "post-mortem: action item"
+	defaultPostMortemLabel = "post-mortem: action item"
 )
 
+type pluginInterface interface {
+	GetIssueLabels(org, repo, id) ([]string, error)
+	CommentReminder(org, repo) error
+}
+
 var sleep = time.Sleep
+
+type Config struct {
+	OrgsRepos map[string]RepoConfig `json:"orgsRepos"`
+}
+
+type RepoConfig struct {
+	slackWebhookUrl string `json:"slackWebhookUrl"`
+	postMortemLabel string `json:"postMortemLabel"`
+}
+
+type server struct {
+	tokenGenerator       func() []byte
+	githubTokenGenerator func() []byte
+	gh                   github.Client
+	log                  *logrus.Entry
+	cfg                  Config
+}
+
+func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+
+}
+
+// handleEvent ignores all github events but 'issues' event.
+func (s *server) handleEvent(eventType, eventGUID string, payload []byte) error {
+	l := s.log.WithFields(logrus.Fields{
+		"event-type":     eventType,
+		github.EventGUID: eventGUID,
+	})
+
+	switch eventType {
+	case "issues":
+		var ic github.IssueEvent
+		if err := json.Unmarshal(payload, &ic); err != nil {
+			return err
+		}
+		go func() {
+			if err := s.handle(l, ic); err != nil {
+				s.log.WithError(err).WithFields(l.Data).Info("Error handling event.")
+			}
+		}()
+	default:
+		logrus.Debugf("skipping event of type %q", eventType)
+	}
+	return nil
+}
 
 // HelpProvider constructs the PluginHelp for the postmotem-reminder plugin that takes into account enabled repositories.
 // HelpProvider defines the type for function that construct the PluginHelp for plugins.
@@ -27,11 +77,7 @@ func HelpProvider(_ []config.OrgRepo) (*pluginhelp.PluginHelp, error) {
 }
 
 // handle handles a Github Issue to determine if it needs to be reminded or not.
-func handle(log *logrus.Entry, gh github.Client, issue *github.Issue) error {
-	labels, err := gh.GetIssueLabels(org, repo, issue.ID)
-	if err != nil {
-		return err
-	}
-
+func (s *server) handle(log *logrus.Entry, issue github.IssueEvent) error {
 	//TODO(arthursens): handle the issue
+	return nil
 }
