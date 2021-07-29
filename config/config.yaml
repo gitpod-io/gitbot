@@ -82,6 +82,15 @@ tide:
     - do-not-merge/hold
     - do-not-merge/work-in-progress
     - do-not-merge/invalid-owners-file
+  context_options:
+    # Treat unknown contexts as optional
+    skip-unknown-contexts: true
+    orgs:
+      org:
+        repos:
+          "gitpod-io/gitpod":
+            required-contexts:
+             - "ci/werft/build"
 
 sinker:
   resync_period: 1m
