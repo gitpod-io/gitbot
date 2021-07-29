@@ -20,6 +20,11 @@ type LabelConfig struct {
 	Values []string `json:"values" yaml:"values"`
 }
 
+type Matchers struct {
+	LabelRegex       *regexp.Regexp
+	RemoveLabelRegex *regexp.Regexp
+}
+
 func (c Config) getLabels() map[string]sets.String {
 	res := make(map[string]sets.String, len(c.OrgsRepos))
 	for repo, lbls := range c.OrgsRepos {
@@ -29,13 +34,14 @@ func (c Config) getLabels() map[string]sets.String {
 	return res
 }
 
-func (c Config) getMatchers() map[string]matchers {
-	res := make(map[string]matchers, len(c.OrgsRepos))
+func (c Config) getMatchers() map[string]Matchers {
+	res := make(map[string]Matchers, len(c.OrgsRepos))
 	for repo, lbls := range c.OrgsRepos {
-		res[repo] = matchers{
-			lbls.getAddRegex(),
-			lbls.getDelRegex(),
+		m := Matchers{
+			LabelRegex:       lbls.getAddRegex(),
+			RemoveLabelRegex: lbls.getDelRegex(),
 		}
+		res[repo] = m
 	}
 
 	return res
@@ -76,11 +82,11 @@ func (rc RepoConfig) getLabels() sets.String {
 }
 
 func (rc RepoConfig) getAddRegex() *regexp.Regexp {
-	re := fmt.Sprintf(`(?m)^/(%s)\s*(.*?)\s*$`, strings.Join(rc.getLabelKeys(), "|"))
-	return regexp.MustCompile(re)
+	re := regexp.MustCompile(fmt.Sprintf(`(?m)^/(%s)\s*(.*?)\s*$`, strings.Join(rc.getLabelKeys(), "|")))
+	return re
 }
 
 func (rc RepoConfig) getDelRegex() *regexp.Regexp {
-	re := fmt.Sprintf(`(?m)^/remove-(%s)\s*(.*?)\s*$`, strings.Join(rc.getLabelKeys(), "|"))
-	return regexp.MustCompile(re)
+	re := regexp.MustCompile(fmt.Sprintf(`(?m)^/remove-(%s)\s*(.*?)\s*$`, strings.Join(rc.getLabelKeys(), "|")))
+	return re
 }
