@@ -110,6 +110,12 @@ func main() {
 	}
 	log.WithField("config", conf).Info("Configuration loaded")
 
+	matchers := conf.getMatchers()
+	supported := conf.getLabels()
+	if len(matchers) == 0 || len(supported) == 0 {
+		// TODO > throw error
+	}
+
 	// Start secrets agent
 	secretAgent := &secret.Agent{}
 	if err := secretAgent.Start([]string{o.github.TokenPath, o.hmacSecret}); err != nil {
@@ -129,6 +135,8 @@ func main() {
 		gh:                   ghClient,
 		log:                  log,
 		cfg:                  conf,
+		repoMatchers:         matchers,
+		repoValidLabels:      supported,
 	}
 
 	health := pjutil.NewHealth()
