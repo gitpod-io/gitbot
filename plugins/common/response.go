@@ -19,7 +19,7 @@ func FormatResponseRaw(body, bodyURL, login, reply, instructionsURL string) stri
 	for _, l := range strings.Split(body, "\n") {
 		quoted = append(quoted, ">"+l)
 	}
-	return FormatResponse(login, reply, instructionsURL, fmt.Sprintf(format, bodyURL, strings.Join(quoted, "\n")))
+	return FormatResponse(login, reply, fmt.Sprintf(format, bodyURL, strings.Join(quoted, "\n")), instructionsURL)
 }
 
 // FormatResponse nicely formats a response to a generic reason.
