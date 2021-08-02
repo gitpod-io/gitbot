@@ -11,7 +11,6 @@ import (
 	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/util/sets"
 	prowgithub "k8s.io/test-infra/prow/github"
-	"k8s.io/test-infra/prow/plugins"
 )
 
 var (
@@ -19,6 +18,8 @@ var (
 	genericLabelRegex       = regexp.MustCompile(`(?m)^/label\s*(.*?)\s*$`)
 	genericRemoveLabelRegex = regexp.MustCompile(`(?m)^/remove-label\s*(.*?)\s*$`)
 )
+
+const readmeURL = "https://github.com/gitpod-io/gitbot/blob/main/plugins/customlabels/README.md"
 
 type server struct {
 	tokenGenerator       func() []byte
@@ -172,9 +173,7 @@ func (s *server) handle(isPR bool, num int, body string, repo prowgithub.Repo, h
 
 		msg := fmt.Sprintf("These are the supported labels: `%s`", strings.Join(existent.List(), ", "))
 
-		// TODO > make our own FormatResponseRaw and use it here
-
-		return s.gh.CreateComment(org, reponame, num, plugins.FormatResponseRaw(bodyWithoutComments, htmlUrl, opener, msg))
+		return s.gh.CreateComment(org, reponame, num, common.FormatResponseRaw(bodyWithoutComments, htmlUrl, opener, msg, readmeURL))
 	}
 
 	repoLabels, err := s.gh.GetRepoLabels(org, reponame)
@@ -258,9 +257,7 @@ func (s *server) handle(isPR bool, num int, body string, repo prowgithub.Repo, h
 
 		msg := fmt.Sprintf("The label(s) `%s` cannot be applied. These labels are supported: `%s`", strings.Join(nonexistent, ", "), strings.Join(existent.List(), ", "))
 
-		// TODO > make our own FormatResponseRaw and use it here
-
-		return s.gh.CreateComment(org, reponame, num, plugins.FormatResponseRaw(bodyWithoutComments, htmlUrl, opener, msg))
+		return s.gh.CreateComment(org, reponame, num, common.FormatResponseRaw(bodyWithoutComments, htmlUrl, opener, msg, readmeURL))
 	}
 
 	// The user tried to remove labels that were not present
@@ -269,9 +266,7 @@ func (s *server) handle(isPR bool, num int, body string, repo prowgithub.Repo, h
 
 		msg := fmt.Sprintf("Those labels are not set on the %s: `%v`", what, strings.Join(noSuchLabelsOnIssue, ", "))
 
-		// TODO > make our own FormatResponseRaw and use it here
-
-		return s.gh.CreateComment(org, reponame, num, plugins.FormatResponseRaw(bodyWithoutComments, htmlUrl, opener, msg))
+		return s.gh.CreateComment(org, reponame, num, common.FormatResponseRaw(bodyWithoutComments, htmlUrl, opener, msg, readmeURL))
 	}
 
 	return nil
