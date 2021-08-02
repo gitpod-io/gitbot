@@ -23,15 +23,6 @@ type pluginInterface interface {
 
 var sleep = time.Sleep
 
-type Config struct {
-	OrgsRepos map[string]RepoConfig `json:"orgsRepos"`
-}
-
-type RepoConfig struct {
-	slackWebhookUrl string `json:"slackWebhookUrl"`
-	postMortemLabel string `json:"postMortemLabel"`
-}
-
 type server struct {
 	tokenGenerator       func() []byte
 	githubTokenGenerator func() []byte
@@ -58,7 +49,7 @@ func (s *server) handleEvent(eventType, eventGUID string, payload []byte) error 
 			return err
 		}
 		go func() {
-			if err := s.handle(l, ic); err != nil {
+			if err := handle(l, ic); err != nil {
 				s.log.WithError(err).WithFields(l.Data).Info("Error handling event.")
 			}
 		}()
@@ -77,7 +68,7 @@ func HelpProvider(_ []config.OrgRepo) (*pluginhelp.PluginHelp, error) {
 }
 
 // handle handles a Github Issue to determine if it needs to be reminded or not.
-func (s *server) handle(log *logrus.Entry, issue github.IssueEvent) error {
+func handle(log *logrus.Entry, issue *github.IssueEvent) error {
 	//TODO(arthursens): handle the issue
 	return nil
 }
