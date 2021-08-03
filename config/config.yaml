@@ -100,7 +100,7 @@ sinker:
 
 periodics:
   - name: post-mortem-reminder
-    interval: 30m
+    interval: 12h
     decorate: true
     annotations:
       description: "Periodic job that reminds us of post-mortem action items with that seem to be forgotten."
@@ -114,11 +114,11 @@ periodics:
             - |-
               --query=org:gitpod-io/gitpod-test-repo
               label:post-mortem/action-item
-            - --updated=15m
+            - --updated=168h # one week
             - --token=/etc/github/token
             - |-
               --comment=Post mortem Action Items are important to ensure Gitpod's reliability.
-              Team, consider giving this issue more attention.
+              Team, please consider giving this issue more attention.
               If this issue is safe to close now please do so with `/close`.
             - --template
             - --confirm
@@ -130,5 +130,3 @@ periodics:
       - name: github-token
         secret:
           secretName: github-token
-      nodeSelector:
-        Archtype: "x86"
