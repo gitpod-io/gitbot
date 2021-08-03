@@ -112,7 +112,7 @@ periodics:
             - /app/robots/commenter/app.binary
           args:
             - |-
-              --query=org:gitpod-io/gitpod-test-repo
+              --query=org:gitpod-io
               label:post-mortem/action-item
             - --updated=168h # one week
             - --token=/etc/github/token
