@@ -97,3 +97,38 @@ sinker:
   max_prowjob_age: 48h
   max_pod_age: 24h
   terminated_pod_ttl: 2h
+
+periodics:
+  - name: post-mortem-reminder
+    interval: 6h
+    decorate: true
+    annotations:
+      description: "Periodic job that reminds us of post-mortem action items with that seem to be forgotten."
+    agent: kubernetes
+    spec:
+      containers:
+        - image: gcr.io/k8s-prow/commenter:v20201116-dbd60ab192
+          command:
+            - /app/robots/commenter/app.binary
+          args:
+            - |-
+              --query=org:gitpod-io/gitpod-test-repo
+              label:post-mortem/action-item
+            - --updated=168h
+            - --token=/etc/github/oauth
+            - |-
+              --comment=Post mortem Action Items are important to ensure Gitpod's reliability.
+              Team, consider giving this issue more attention.
+              If this issue is safe to close now please do so with `/close`.
+            - --template
+            - --confirm
+          volumeMounts:
+          - name: oauth
+            mountPath: /etc/github
+            readOnly: true
+      volumes:
+      - name: oauth
+        secret:
+          secretName: oauth-token
+      nodeSelector:
+        Archtype: "x86"

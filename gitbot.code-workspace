@@ -4,7 +4,6 @@
        { "path": "plugins/common" },
        { "path": "plugins/groundwork" },
        { "path": "plugins/projectmanager" },
-       { "path": "plugins/postmortem-reminder" },
        { "path": "plugins/customlabels" }
     ],
     "settings": {
