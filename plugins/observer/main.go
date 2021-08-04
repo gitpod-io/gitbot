@@ -161,9 +161,10 @@ type ProjectColumnEntry struct {
 	Column    string
 	Timestamp time.Time
 	Assignees []string
+	Labels    []string
 }
 
-const tableName = "project_col_entry"
+const tableName = "prj_col_entry"
 
 func setupBigQuery(ctx context.Context, client *bigquery.Client, dataset string) error {
 	schema, err := bigquery.InferSchema(ProjectColumnEntry{})
@@ -197,35 +198,45 @@ func isAlreadyExists(err error) bool {
 
 // {
 // 	organization(login: "gitpod-io") {
-// 	  project(number: 3) {
+// 		project(number: 3) {
 // 		columns(first: 100) {
-// 		  nodes {
+// 			nodes {
 // 			name
 // 			cards(first: 100) {
-// 			  nodes {
+// 				nodes {
 // 				content {
-// 				  ... on Issue {
+// 					... on Issue {
 // 					id
 // 					number
 // 					title
-// 				  }
-// 				  ... on PullRequest {
+// 					labels (first:10) {
+// 						nodes {
+// 						name
+// 						}
+// 					}
+// 					}
+// 					... on PullRequest {
 // 					id
 // 					number
 // 					title
-// 				  }
+// 					}
 // 				}
-// 			  }
+// 				}
 // 			}
-// 		  }
+// 			}
 // 		}
-// 	  }
+// 		}
 // 	}
-//   }
+// }
 
 type queryIssue struct {
-	Number    githubql.Int
-	Title     githubql.String
+	Number githubql.Int
+	Title  githubql.String
+	Labels struct {
+		Nodes []struct {
+			Name githubql.String
+		}
+	} `graphql:"labels(first: 10)"`
 	Assignees struct {
 		Nodes []struct {
 			Login githubql.String
@@ -308,6 +319,11 @@ func observeRepo(ctx context.Context, wg *sync.WaitGroup, tbl *bigquery.Table, g
 					assignees[i] = string(issue.Assignees.Nodes[i].Login)
 				}
 
+				labels := make([]string, len(issue.Labels.Nodes))
+				for i := range issue.Labels.Nodes {
+					labels[i] = string(issue.Labels.Nodes[i].Name)
+				}
+
 				err = ins.Put(ctx, ProjectColumnEntry{
 					Project:   string(q.Organisation.Project.Name),
 					Issue:     int(issue.Number),
@@ -315,6 +331,7 @@ func observeRepo(ctx context.Context, wg *sync.WaitGroup, tbl *bigquery.Table, g
 					Column:    col.Name,
 					Timestamp: now,
 					Assignees: assignees,
+					Labels:    labels,
 				})
 				if err != nil {
 					logrus.WithError(err).Warn("cannot insert into bigquery")
