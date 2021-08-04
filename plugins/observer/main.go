@@ -38,13 +38,13 @@ type Config struct {
 	OrgRepos map[string]ManagedOrgRepo `json:"orgsRepos,omitempty"`
 }
 
-// ManagedOrgRepo is used by the ObserverC plugin to represent an Organisation
+// ManagedOrgRepo is used by the Observer plugin to represent an Organisation
 type ManagedOrgRepo struct {
 	Projects map[int]ManagedProject `json:"projects,omitempty"`
 	// with a list of Columns
 }
 
-// ManagedProject is used by the ObserverC plugin to represent a Project
+// ManagedProject is used by the Observer plugin to represent a Project
 type ManagedProject struct {
 	ExcludeColumns []string `json:"excludeColumns,omitempty"`
 }
