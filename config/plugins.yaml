@@ -123,3 +123,25 @@ size:
   l: 90
   xl: 270
   xxl: 520
+
+
+presubmits:
+  gitpod-com/gitpod:
+  - name: Terraform format checker
+    decorate: true
+    decoration_config:
+      ssh_key_secrets:
+      - roboquat-ssh-secret
+    always_run: false         
+    run_if_changed: "**.tf" 
+    skip_report: false
+    clone_uri: git@github.com:{{.Org}}/{{.Repo}}.git
+    skip_submodules: true
+    clone_depth: 0
+    spec:
+      containers:
+      - image: eu.gcr.io/gitpod-dev/gitpod-com/gitpod-ci:2
+        command:
+        - "make"
+        args:
+        - "terraform-lint"
