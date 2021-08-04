@@ -72,6 +72,24 @@ plugins:
     - wip
     - yuks
     - trigger
+  gitpod-com/gitpod:
+    plugins:
+    - size
+    - wip
+    - trigger
+    - cat
+    - goose
+    - dog
+    - yuks
+  gitpod-com/observability:
+    plugins:
+    - size
+    - wip
+    - trigger
+    - cat
+    - goose
+    - dog
+    - yuks
 
 
 external_plugins:
