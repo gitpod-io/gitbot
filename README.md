@@ -28,6 +28,7 @@ cd plugins/groundwork
 
 # restart the plugin deployment
 gcloud container clusters get-credentials prow --zone europe-west1-b --project gitpod-core-dev
+kubectl config set-context --current --namespace=prow
 kubectl rollout restart deployment groundwork
 ```
 
