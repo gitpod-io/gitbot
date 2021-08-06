@@ -299,6 +299,11 @@ func (s *server) replaceGroundworkLabel(org, repo string, issue int, newLabel st
 	}
 
 	for _, lbl := range groundworkLabels {
+		if lbl == newLabel {
+			// we're just re-adding the same label, do nothing
+			return nil
+		}
+
 		err := s.gh.RemoveLabel(org, repo, issue, lbl)
 		if err != nil {
 			s.log.WithError(err).WithField("issue", issue).WithField("label", lbl).Warn("cannot remove label")
@@ -408,11 +413,15 @@ func (s *server) handleIssueComment(ic github.IssueCommentEvent) error {
 				logrus.WithError(err).Warn("card creation failed - will try to move irregardless")
 
 				// bug in test-infra Github client: card creation succeeds, but error and no response is returned
-				cardID, _ = common.FindCardByIssueURL(s.gh, ic.Repo.Owner.Login, ic.Repo.Name, ic.Issue.Number, *repocfg.Columns.Inbox)
+				cardID, err = common.FindCardByIssueURL(s.gh, ic.Repo.Owner.Login, ic.Repo.Name, ic.Issue.Number, *repocfg.Columns.Inbox)
+				if err != nil {
+					return err
+				}
 			}
 		}
 
 		if cardID == nil {
+			logrus.WithFields(logrus.Fields{"issue": ic.Issue.Number, "org": ic.Repo.Owner.Login, "repo": ic.Repo.Name}).Warn("did not move card to scheduled column, but should have")
 			return nil
 		}
 
