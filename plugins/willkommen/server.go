@@ -42,7 +42,16 @@ func (s *server) handleEvent(eventType, eventGUID string, payload []byte) error 
 
 	switch eventType {
 	case "issue_comment":
-		fallthrough
+		var evt prowgithub.IssueCommentEvent
+		if err := json.Unmarshal(payload, &evt); err != nil {
+			s.log.WithError(err).WithFields(l.Data).Error("Error unmarshaling event")
+			return err
+		}
+		go func() {
+			if err := s.handleIssueCommentEvent(&evt); err != nil {
+				s.log.WithError(err).WithFields(l.Data).Info("Error handling event")
+			}
+		}()
 	case "pull_request":
 		var evt prowgithub.PullRequestEvent
 		if err := json.Unmarshal(payload, &evt); err != nil {
@@ -67,19 +76,45 @@ func (s *server) handlePullRequestEvent(evt *prowgithub.PullRequestEvent) error 
 		return nil
 	}
 
-	if evt.PullRequest.User.Type != prowgithub.UserTypeUser {
+	user := evt.PullRequest.User.Login
+
+	if evt.PullRequest.User.Type != prowgithub.UserTypeUser || user == "roboquat" {
 		s.log.Debug("ignore pull requests opened by bots")
 		return nil
 	}
 
+	org := evt.PullRequest.Base.Repo.Owner.Login
+	repo := evt.PullRequest.Base.Repo.Name
+	name := evt.PullRequest.User.Name
+
+	return s.handle(org, repo, user, name, evt.PullRequest.Number)
+}
+
+func (s *server) handleIssueCommentEvent(evt *prowgithub.IssueCommentEvent) error {
+	if evt.Action != prowgithub.IssueCommentActionCreated {
+		s.log.Debug("only consider new issue comments")
+		return nil
+	}
+
+	user := evt.Comment.User.Login
+
+	if evt.Comment.User.Type != prowgithub.UserTypeUser || user == "roboquat" {
+		s.log.Debug("ignore issue comments by bots")
+		return nil
+	}
+
+	org := evt.Repo.Owner.Login
+	repo := evt.Repo.Name
+	name := evt.Comment.User.Name
+
+	return s.handle(org, repo, user, name, evt.Issue.Number)
+}
+
+func (s *server) handle(org, repo, user, name string, num int) error {
 	pluginsConfig := s.pluginsConfigAgent.Config()
 	if pluginsConfig == nil {
 		return fmt.Errorf("missing plugins config")
 	}
-
-	org := evt.PullRequest.Base.Repo.Owner.Login
-	repo := evt.PullRequest.Base.Repo.Name
-	user := evt.PullRequest.User.Login
 
 	t := pluginsConfig.TriggerFor(org, repo)
 	trustedResponse, err := trigger.TrustedUser(s.gh, t.OnlyOrgMembers, org, user, org, repo)
@@ -98,7 +133,7 @@ func (s *server) handlePullRequestEvent(evt *prowgithub.PullRequestEvent) error 
 	}
 
 	// In case there are no results, this is the first...
-	if len(res) == 0 || len(res) == 1 && res[0].Number == evt.Number {
+	if len(res) == 0 || len(res) == 1 && res[0].Number == num {
 		welcomeTemplate := s.cfg.getMessage(org, repo)
 		// load the template, and run it over the PR info
 		parsedTemplate, err := template.New("welcome").Parse(welcomeTemplate)
@@ -111,21 +146,21 @@ func (s *server) handlePullRequestEvent(evt *prowgithub.PullRequestEvent) error 
 			Org:         org,
 			Repo:        repo,
 			AuthorLogin: user,
-			AuthorName:  evt.PullRequest.User.Name,
+			AuthorName:  name,
 		})
 		if err != nil {
 			return err
 		}
 
 		// Comment
-		err = s.gh.CreateComment(org, repo, evt.PullRequest.Number, msgBuffer.String())
+		err = s.gh.CreateComment(org, repo, num, msgBuffer.String())
 		if err != nil {
 			return err
 		}
 
 		// Set label
 		if lbl := s.cfg.getLabel(org, repo); lbl != "" {
-			err = s.gh.AddLabel(org, repo, evt.PullRequest.Number, lbl)
+			err = s.gh.AddLabel(org, repo, num, lbl)
 			if err != nil {
 				return err
 			}
