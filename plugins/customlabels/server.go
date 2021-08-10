@@ -171,9 +171,7 @@ func (s *server) handle(isPR bool, num int, body string, repo prowgithub.Repo, h
 	if len(labelMatches) == 0 && len(removeLabelMatches) == 0 && len(genericLabelMatches) == 0 && len(genericRemoveLabelMatches) == 0 {
 		s.log.WithField("body", bodyWithoutComments).Info("No match found")
 
-		msg := fmt.Sprintf("These are the supported labels: `%s`", strings.Join(existent.List(), ", "))
-
-		return s.gh.CreateComment(org, reponame, num, common.FormatResponseRaw(bodyWithoutComments, htmlUrl, opener, msg, readmeURL))
+		return nil
 	}
 
 	repoLabels, err := s.gh.GetRepoLabels(org, reponame)
