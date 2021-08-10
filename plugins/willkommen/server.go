@@ -41,6 +41,8 @@ func (s *server) handleEvent(eventType, eventGUID string, payload []byte) error 
 	})
 
 	switch eventType {
+	case "issue_comment":
+		fallthrough
 	case "pull_request":
 		var evt prowgithub.PullRequestEvent
 		if err := json.Unmarshal(payload, &evt); err != nil {
