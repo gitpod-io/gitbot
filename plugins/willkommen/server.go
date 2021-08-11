@@ -87,7 +87,7 @@ func (s *server) handlePullRequestEvent(evt *prowgithub.PullRequestEvent) error 
 	repo := evt.PullRequest.Base.Repo.Name
 	name := evt.PullRequest.User.Name
 
-	return s.handle(org, repo, user, name, evt.PullRequest.Number)
+	return s.handle(org, repo, user, name, "pull request", evt.PullRequest.Number)
 }
 
 func (s *server) handleIssueCommentEvent(evt *prowgithub.IssueCommentEvent) error {
@@ -107,10 +107,10 @@ func (s *server) handleIssueCommentEvent(evt *prowgithub.IssueCommentEvent) erro
 	repo := evt.Repo.Name
 	name := evt.Comment.User.Name
 
-	return s.handle(org, repo, user, name, evt.Issue.Number)
+	return s.handle(org, repo, user, name, "issue comment", evt.Issue.Number)
 }
 
-func (s *server) handle(org, repo, user, name string, num int) error {
+func (s *server) handle(org, repo, user, name, evtType string, num int) error {
 	pluginsConfig := s.pluginsConfigAgent.Config()
 	if pluginsConfig == nil {
 		return fmt.Errorf("missing plugins config")
@@ -147,6 +147,7 @@ func (s *server) handle(org, repo, user, name string, num int) error {
 			Repo:        repo,
 			AuthorLogin: user,
 			AuthorName:  name,
+			Type:        evtType,
 		})
 		if err != nil {
 			return err

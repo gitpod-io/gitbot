@@ -5,7 +5,7 @@ import (
 )
 
 const (
-	defaultTemplate = "{{.Greeting}} @{{.AuthorLogin}}!"
+	defaultTemplate = "{{.Greeting}} @{{.AuthorLogin}}! 👋"
 )
 
 var greetings = [4]string{"Benvenuto", "Welcome", "Willkommen", "Bienvenido"}
@@ -16,6 +16,7 @@ type pullRequestInfo struct {
 	Repo        string
 	AuthorLogin string
 	AuthorName  string
+	Type        string
 }
 
 type Config struct {
