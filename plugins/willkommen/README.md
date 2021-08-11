@@ -16,6 +16,7 @@ The message template can interpolate the following variables:
 - `.AuthorName`
 - `.Org`
 - `.Repo`
+- `.Type`
 
 You can also instruct this plugin to apply a label to the newly opened pull requests.
 
@@ -29,6 +30,6 @@ Here's an example configuration applying the behavior to all the repositories in
 orgsRepos:
   "gitpod-io":
     label: "community-contribution"
-    message: "{{.Greeting}} @{{.AuthorLogin}}! It looks like this is your first PR to {{.Org}}/{{.Repo}} 🎉"
+    message: "{{.Greeting}} @{{.AuthorLogin}}! It looks like this is your first {{.Type}} to {{.Org}}/{{.Repo}} 🎉"
 ```
 
