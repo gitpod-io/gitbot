@@ -5,7 +5,8 @@
        { "path": "plugins/groundwork" },
        { "path": "plugins/projectmanager" },
        { "path": "plugins/customlabels" },
-       { "path": "plugins/observer" }
+       { "path": "plugins/observer" },
+       { "path": "plugins/willkommen" }
     ],
     "settings": {
        "go.formatTool": "goimports",
