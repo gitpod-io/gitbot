@@ -65,6 +65,7 @@ plugins:
     - heart
     - hold
     - lgtm
+    - release-note
     - size
     - verify-owners
     - wip

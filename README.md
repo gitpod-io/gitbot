@@ -13,6 +13,7 @@ Raise a PR that makes changes to `config/config.yaml` or `config/plugins.yaml`. 
 ```bash
 gcloud auth login
 gcloud container clusters get-credentials prow --zone europe-west1-b --project gitpod-core-dev
+kubectl config set-context --current --namespace=prow
 sh apply.sh
 ```
 
