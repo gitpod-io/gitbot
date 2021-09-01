@@ -1,5 +1,16 @@
 orgsRepos:
+  "gitpod-io/gitpod":
+    - key: "team"
+      values: 
+        - "meta"
+        - "workspace"
+        - "IDE"
   "gitpod-io/gitpod-test-repo":
+    - key: "team"
+      values: 
+        - "meta"
+        - "workspace"
+        - "IDE"
     - key: "type"
       values:
         - "bug"

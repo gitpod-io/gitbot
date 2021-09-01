@@ -2,12 +2,15 @@ package common
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 	"time"
 
+	githubql "github.com/shurcooL/githubv4"
+	"github.com/sirupsen/logrus"
 	"k8s.io/test-infra/prow/github"
 )
 
@@ -67,6 +70,67 @@ func MoveProjectCard(tokenGenerator func() []byte, org string, cardID, columnID 
 	}
 
 	return nil
+}
+
+func CountColumnCardsWithLabel(gh github.Client, org string, projectNumber int, column int, label string) (int, error) {
+	type queryIssue struct {
+		Labels struct {
+			Nodes []struct {
+				Name githubql.String
+			}
+		} `graphql:"labels(first: 10)"`
+	}
+	type projectQuery struct {
+		Organisation struct {
+			Project struct {
+				Columns struct {
+					Nodes []struct {
+						DatabaseID githubql.Int
+						Cards      struct {
+							Nodes []struct {
+								Content struct {
+									PR    queryIssue `graphql:"... on PullRequest"`
+									Issue queryIssue `graphql:"... on Issue"`
+								}
+							}
+						} `graphql:"cards(first: 100)"`
+					}
+				} `graphql:"columns(first: 6)"`
+			} `graphql:"project(number: $prj)"`
+		} `graphql:"organization(login: $org)"`
+	}
+
+	vars := map[string]interface{}{
+		"prj": githubql.Int(projectNumber),
+		"org": githubql.String(org),
+	}
+
+	var q projectQuery
+	qctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	err := gh.Query(qctx, &q, vars)
+	cancel()
+	if err != nil {
+		return 0, err
+	}
+
+	var count int
+	for _, c := range q.Organisation.Project.Columns.Nodes {
+		if int(c.DatabaseID) != column {
+			continue
+		}
+
+		logrus.WithField("col", c).Debug("CountColumnCardsWithLabel: found column")
+		for _, card := range c.Cards.Nodes {
+			for _, l := range append(card.Content.PR.Labels.Nodes, card.Content.Issue.Labels.Nodes...) {
+				if string(l.Name) == label {
+					count++
+					break
+				}
+			}
+		}
+		break
+	}
+	return count, nil
 }
 
 func authHeader(tokenSource func() []byte) string {

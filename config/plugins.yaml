@@ -82,6 +82,12 @@ external_plugins:
     endpoint: http://projectmanager.prow.svc.cluster.local:8787
     events:
     - issues
+  - name: customlabels
+    endpoint: http://customlabels.prow.svc.cluster.local:8787
+    events:
+    - issues
+    - issue_comment
+    - pull_request
   "gitpod-io/gitpod-test-repo":
   - name: groundwork
     endpoint: http://groundwork.prow.svc.cluster.local:8787
