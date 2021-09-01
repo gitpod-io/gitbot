@@ -39,10 +39,16 @@ type Config struct {
 }
 
 type RepoConfig struct {
-	Columns         ColumnConfig `json:"columns"`
-	FreeForAllLimit int          `json:"freeForAllLimit"`
-	TotalLimit      *int         `json:"totalLimit"`
-	Scheduler       []string     `json:"scheduler,omitempty"`
+	ProjectID     int                        `json:"project"`
+	Columns       ColumnConfig               `json:"columns"`
+	Default       *SchedulerConfig           `json:"withoutTeam"`
+	PerTeamConfig map[string]SchedulerConfig `json:"teams"`
+}
+
+type SchedulerConfig struct {
+	FreeForAllLimit int      `json:"freeForAllLimit"`
+	TotalLimit      *int     `json:"totalLimit"`
+	Scheduler       []string `json:"scheduler,omitempty"`
 }
 
 type ColumnConfig struct {
@@ -359,18 +365,50 @@ func (s *server) handleIssueComment(ic github.IssueCommentEvent) error {
 		return nil
 	}
 
-	scheduledCards, err := s.gh.GetColumnProjectCards(org, *repocfg.Columns.Scheduled)
-	if err != nil {
-		return err
+	var team string
+	for _, l := range ic.Issue.Labels {
+		if strings.HasPrefix(l.Name, "team: ") {
+			team = strings.TrimPrefix(l.Name, "team: ")
+			break
+		}
 	}
-	cardCount := len(scheduledCards)
+	var cfg *SchedulerConfig
+	if team == "" {
+		cfg = repocfg.Default
+	} else if c, ok := repocfg.PerTeamConfig[team]; ok {
+		cfg = &c
+	}
+	if cfg == nil {
+		var msg string
+		if team == "" {
+			msg = "Cannot schedule issue - issue does not belong to a team. Use /team to specify one."
+		} else {
+			msg = "Cannot schedule issue - no configuration for the " + team + " team available."
+		}
+		return s.gh.CreateComment(org, repo, num, plugins.FormatICResponse(ic.Comment, msg))
+	}
+
+	var cardCount int
+	if team == "" {
+		scheduledCards, err := s.gh.GetColumnProjectCards(org, *repocfg.Columns.Scheduled)
+		if err != nil {
+			return err
+		}
+		cardCount = len(scheduledCards)
+	} else {
+		var err error
+		cardCount, err = common.CountColumnCardsWithLabel(s.gh, org, repocfg.ProjectID, *repocfg.Columns.Scheduled, fmt.Sprintf("team: %s", team))
+		if err != nil {
+			return err
+		}
+	}
 
 	author := ic.Comment.User.Login
 	var permitted bool
-	if cardCount < repocfg.FreeForAllLimit {
+	if cardCount < cfg.FreeForAllLimit {
 		permitted = true
 	} else {
-		for _, u := range repocfg.Scheduler {
+		for _, u := range cfg.Scheduler {
 			if u == author {
 				permitted = true
 				break
@@ -379,15 +417,15 @@ func (s *server) handleIssueComment(ic github.IssueCommentEvent) error {
 	}
 	if !permitted {
 		var scheduler string
-		for _, u := range repocfg.Scheduler {
+		for _, u := range cfg.Scheduler {
 			scheduler += fmt.Sprintf("  - %s\n", u)
 		}
 		l.WithFields(logrus.Fields{"author": author}).Info("rejecting scheduling request")
-		return s.gh.CreateComment(org, repo, num, plugins.FormatICResponse(ic.Comment, fmt.Sprintf("We have more than %d cards scheduled. Above %d only scheduler can perform this action. Those are:\n"+scheduler, cardCount, repocfg.FreeForAllLimit)))
+		return s.gh.CreateComment(org, repo, num, plugins.FormatICResponse(ic.Comment, fmt.Sprintf("We have more than %d cards scheduled. Above %d only scheduler can perform this action. Those are:\n"+scheduler, cardCount, cfg.FreeForAllLimit)))
 	}
 
-	if repocfg.TotalLimit != nil && cardCount > *repocfg.TotalLimit {
-		return s.gh.CreateComment(org, repo, num, plugins.FormatICResponse(ic.Comment, fmt.Sprintf("Cannot schedule issue - scheduled items limit (%d) has been reached.", *repocfg.TotalLimit)))
+	if cfg.TotalLimit != nil && cardCount > *cfg.TotalLimit {
+		return s.gh.CreateComment(org, repo, num, plugins.FormatICResponse(ic.Comment, fmt.Sprintf("Cannot schedule issue - scheduled items limit (%d) has been reached.", *cfg.TotalLimit)))
 	}
 
 	if schedule {
@@ -433,7 +471,18 @@ func (s *server) handleIssueComment(ic github.IssueCommentEvent) error {
 			}
 		}
 
-		return common.MoveProjectCard(s.githubTokenGenerator, org, *cardID, *repocfg.Columns.Scheduled, position)
+		err = common.MoveProjectCard(s.githubTokenGenerator, org, *cardID, *repocfg.Columns.Scheduled, position)
+		if err != nil {
+			return err
+		}
+
+		msg := "Issue scheduled"
+		if team == "" {
+			msg += fmt.Sprintf(" (WIP: %d)", cardCount)
+		} else {
+			msg += fmt.Sprintf(" in the %s team (WIP: %d)", team, cardCount)
+		}
+		return s.gh.CreateComment(org, repo, num, plugins.FormatICResponse(ic.Comment, msg))
 	} else if dontSchedule {
 		return s.gh.CreateComment(org, repo, num, plugins.FormatICResponse(ic.Comment, "dont-schedule is not yet supported"))
 	}

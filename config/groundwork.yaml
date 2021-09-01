@@ -3,18 +3,32 @@ orgsRepos:
     columns:
       inbox: 14795239
       scheduled: 14782120
-    freeForAllLimit: 15
-    totalLimit: 25
-    scheduler:
-      - csweichel
-      - JanKoehnlein
+    teams:
+      IDE:
+        freeForAllLimit: 5
+        totalLimit: 15
+        scheduler:
+          - akosyakov
+          - csweichel
+      meta:
+        freeForAllLimit: 10
+        totalLimit: 15
+        scheduler:
+          - JanKoehnlein
+          - csweichel
+      workspace:
+        freeForAllLimit: 10
+        totalLimit: 15
+        scheduler:
+          - csweichel
   "gitpod-io/gitpod-test-repo":
     columns:
       inbox: 15074317
       scheduled: 15074318
-    freeForAllLimit: 15
-    totalLimit: 3
-    scheduler:
-      - csweichel
-      - ArthurSens
-      - leodido
+    withoutTeam:
+      freeForAllLimit: 15
+      totalLimit: 3
+      scheduler:
+        - csweichel
+        - ArthurSens
+        - leodido
