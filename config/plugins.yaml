@@ -33,6 +33,7 @@ plugins:
     - hold
     - label
     - lgtm
+    - release-note
     - size
     - verify-owners
     - wip
@@ -49,6 +50,7 @@ plugins:
     - hold
     - label
     - lgtm
+    - release-note
     - size
     - verify-owners
     - wip
