@@ -60,6 +60,7 @@ tide:
     - do-not-merge/hold
     - do-not-merge/work-in-progress
     - do-not-merge/invalid-owners-file
+    - do-not-merge/release-note-label-needed
   - repos:
     - gitpod-io/gitpod-test-repo
     labels:
@@ -83,6 +84,7 @@ tide:
     - do-not-merge/hold
     - do-not-merge/work-in-progress
     - do-not-merge/invalid-owners-file
+    - do-not-merge/release-note-label-needed
   context_options:
     # Treat unknown contexts as optional
     skip-unknown-contexts: true
