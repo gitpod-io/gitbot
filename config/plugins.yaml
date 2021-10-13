@@ -8,7 +8,6 @@ approve:
       - gitpod-io/gitpod
     require_self_approval: true
     lgtm_acts_as_approve: true
-    issue_required: true
     commandHelpLink: https://prow.gitpod-dev.com/command-help
 
 lgtm:
