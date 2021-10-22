@@ -301,8 +301,10 @@ func (s *server) updateMatchingColumn(ie github.IssueEvent, log *logrus.Entry) e
 
 		for projectName, managedProject := range managedOrgRepo.Projects {
 			for _, managedColumn := range managedProject.Columns {
+				log.Infof("Project %s   Column: %d (%s)", projectName, *managedColumn.ID, managedColumn.Labels)
 				if managedColumn.ID == nil {
 					log.Infof("Ignoring column: {%v}, has no columnID", managedColumn, e.number, e.org)
+					continue
 				}
 				// Org is not specified or does not match we just ignore processing this column
 				if managedColumn.Org == "" || managedColumn.Org != e.org {
@@ -323,15 +325,18 @@ func (s *server) updateMatchingColumn(ie github.IssueEvent, log *logrus.Entry) e
 					continue
 				}
 
-				cardID, err := common.FindCardByIssueURL(gc, orgRepoName, projectName, e.number, *managedColumn.ID)
+				log.Infof("Searching for card for issue #%d for in column: %d", e.number, *managedColumn.ID)
+				cardID, err := common.FindCardByIssueURL(gc, orgRepoName, e.repo, e.number, *managedColumn.ID)
 				if err != nil {
 					log.Infof("Cannot add the issue/PR: %d to the project: %s, column: %s, error: %s", e.number, projectName, managedColumn.ID, err)
 					break
 				}
 
 				if cardID == nil {
+					log.Infof("No such card. Creating a new one")
 					err = addIssueToColumn(gc, *managedColumn.ID, e)
 				} else {
+					log.Infof("Found card %d, moving", cardID)
 					err = common.MoveProjectCard(s.githubTokenGenerator, e.org, *cardID, *managedColumn.ID, "bottom")
 				}
 				if err != nil {

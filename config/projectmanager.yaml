@@ -26,6 +26,11 @@ orgsRepos:
             labels:
               - "groundwork: awaiting deployment"
             state: "closed"
+          - id: 14782155
+            org: "gitpod-io"
+            labels:
+              - "groundwork: deployed"
+            state: "closed"
   "gitpod-io/gitpod-test-repo":
     projects:
       "Groundwork Test":
