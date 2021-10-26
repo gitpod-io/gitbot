@@ -5,12 +5,11 @@ orgsRepos:
     projects:
       "Engineering Groundwork":
         columns:
-          ## scheduled column is managed by groundwork plugin
-          # - id: 14782120
-          #   org: "gitpod-io"
-          #   labels:
-          #     - "groundwork: scheduled"
-          #   state: "open"
+          - id: 14782120
+            org: "gitpod-io"
+            labels:
+              - "groundwork: scheduled"
+            state: "open"
           - id: 14782132
             org: "gitpod-io"
             labels:
@@ -31,7 +30,17 @@ orgsRepos:
             labels:
               - "groundwork: deployed"
             state: "closed"
+          # If none of the above matches, use Inbox for open issues...
+          - id: 14795239
+            org: "gitpod-io"
+            state: "open"
+          # ...and Deployed for close ones
+          - id: 14782155
+            org: "gitpod-io"
+            state: "closed"
   "gitpod-io/gitpod-test-repo":
+    fromRepos: 
+    - gitpod-io/gitpod-test-repo
     projects:
       "Groundwork Test":
         columns:

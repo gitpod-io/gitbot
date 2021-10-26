@@ -20,10 +20,10 @@ package main
 import (
 	"encoding/json"
 	"flag"
-	"fmt"
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gitpod-io/gitbot/common"
@@ -45,13 +45,13 @@ const pluginName = "project-manager"
 
 var (
 	failedToAddProjectCard = "Failed to add project card for the issue/PR"
-	issueAlreadyInProject  = "The issue/PR %s already assigned to the project %s"
 
 	handleIssueActions = map[github.IssueEventAction]bool{
 		github.IssueActionOpened:    true,
 		github.IssueActionReopened:  true,
 		github.IssueActionLabeled:   true,
 		github.IssueActionUnlabeled: true,
+		github.IssueActionClosed:    true,
 	}
 )
 
@@ -185,7 +185,6 @@ func main() {
 type server struct {
 	eventTokenGenerator  func() []byte
 	githubTokenGenerator func() []byte
-	configAgent          *config.Agent
 	gh                   github.Client
 	log                  *logrus.Entry
 	mgrCfg               ProjectManager
@@ -246,15 +245,6 @@ type eventData struct {
 	remove bool
 }
 
-type DuplicateCard struct {
-	projectName string
-	issueURL    string
-}
-
-func (m *DuplicateCard) Error() string {
-	return fmt.Sprintf(issueAlreadyInProject, m.issueURL, m.projectName)
-}
-
 func (s *server) handleIssueOrPullRequest(ie github.IssueEvent, l *logrus.Entry) error {
 	if !handleIssueActions[ie.Action] {
 		return nil
@@ -277,6 +267,7 @@ func (s *server) updateMatchingColumn(ie github.IssueEvent, log *logrus.Entry) e
 		labels: ie.Issue.Labels,
 		remove: ie.Action == github.IssueActionUnlabeled,
 	}
+	log.Infof("Processing event {%v}", e)
 
 	var err error
 	// Don't use GetIssueLabels unless it's required and keep track of whether the labels have been fetched to avoid unnecessary API usage.
@@ -301,7 +292,6 @@ func (s *server) updateMatchingColumn(ie github.IssueEvent, log *logrus.Entry) e
 
 		for projectName, managedProject := range managedOrgRepo.Projects {
 			for _, managedColumn := range managedProject.Columns {
-				log.Infof("Project %s   Column: %d (%s)", projectName, *managedColumn.ID, managedColumn.Labels)
 				if managedColumn.ID == nil {
 					log.Infof("Ignoring column: {%v}, has no columnID", managedColumn, e.number, e.org)
 					continue
@@ -325,26 +315,40 @@ func (s *server) updateMatchingColumn(ie github.IssueEvent, log *logrus.Entry) e
 					continue
 				}
 
-				log.Infof("Searching for card for issue #%d for in column: %d", e.number, *managedColumn.ID)
-				cardID, err := common.FindCardByIssueURL(gc, orgRepoName, e.repo, e.number, *managedColumn.ID)
-				if err != nil {
-					log.Infof("Cannot add the issue/PR: %d to the project: %s, column: %s, error: %s", e.number, projectName, managedColumn.ID, err)
-					break
+				log.Infof("Found matching column {%v} for issue/PR: %d", managedColumn, e.number)
+
+				var cardID *int
+				for _, col := range managedProject.Columns {
+					cardID, err = common.FindCardByIssueURL(gc, orgRepoName, e.repo, e.number, *col.ID)
+					if err != nil {
+						log.Infof("Cannot add the issue/PR: %d to the project: %s, column: %s, error: %s", e.number, projectName, managedColumn.ID, err)
+						break
+					}
+					if cardID != nil {
+						break
+					}
+				}
+
+				var position = "bottom"
+				for _, l := range e.labels {
+					if strings.HasPrefix(l.Name, "priority: high") {
+						position = "top"
+						break
+					}
 				}
 
 				if cardID == nil {
-					log.Infof("No such card. Creating a new one")
-					err = addIssueToColumn(gc, *managedColumn.ID, e)
+					log.Infof("Creating a new card issue #%d in column {%v}", e.number, managedColumn)
+					err = s.addIssueToColumn(gc, *managedColumn.ID, e, position)
 				} else {
-					log.Infof("Found card %d, moving", cardID)
-					err = common.MoveProjectCard(s.githubTokenGenerator, e.org, *cardID, *managedColumn.ID, "bottom")
+					log.Infof("Found card %d, moving to column {%v}", cardID, managedColumn)
+					err = common.MoveProjectCard(s.githubTokenGenerator, e.org, *cardID, *managedColumn.ID, position)
 				}
 				if err != nil {
 					log.WithError(err).WithFields(logrus.Fields{
 						"matchedColumnID": *managedColumn.ID,
 					}).Error(failedToAddProjectCard)
 				}
-
 				break
 			}
 		}
@@ -352,7 +356,7 @@ func (s *server) updateMatchingColumn(ie github.IssueEvent, log *logrus.Entry) e
 	return err
 }
 
-func addIssueToColumn(gc githubClient, columnID int, e eventData) error {
+func (s *server) addIssueToColumn(gc githubClient, columnID int, e eventData, position string) error {
 	// Create project card and add this PR
 	projectCard := github.ProjectCard{}
 	if e.isPR {
@@ -361,6 +365,11 @@ func addIssueToColumn(gc githubClient, columnID int, e eventData) error {
 
 	projectCard.ContentType = "Issue"
 	projectCard.ContentID = e.id
-	_, err := gc.CreateProjectCard(e.org, columnID, projectCard)
+
+	newCard, err := gc.CreateProjectCard(e.org, columnID, projectCard)
+	if err != nil {
+		return err
+	}
+	err = common.MoveProjectCard(s.githubTokenGenerator, e.org, newCard.ID, columnID, position)
 	return err
 }
