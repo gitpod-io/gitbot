@@ -6,7 +6,8 @@
        { "path": "plugins/projectmanager" },
        { "path": "plugins/customlabels" },
        { "path": "plugins/observer" },
-       { "path": "plugins/willkommen" }
+       { "path": "plugins/willkommen" },
+       { "path": "plugins/deployed-labeler" }
     ],
     "settings": {
        "go.formatTool": "goimports",
