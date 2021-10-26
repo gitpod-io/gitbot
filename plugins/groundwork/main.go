@@ -223,9 +223,6 @@ const (
 	labelScheduled          = "groundwork: scheduled"
 	labelAwaitingDeployment = "groundwork: awaiting deployment"
 	labelInReview           = "groundwork: in review"
-
-	labelPrioHighest = "priority: highest (user impact)"
-	labelPrioHigh    = "priority: high (dev loop impact)"
 )
 
 func (s *server) handleIssueEvent(evt github.IssueEvent) error {
@@ -461,19 +458,6 @@ func (s *server) handleIssueComment(ic github.IssueCommentEvent) error {
 		if cardID == nil {
 			logrus.WithFields(logrus.Fields{"issue": ic.Issue.Number, "org": ic.Repo.Owner.Login, "repo": ic.Repo.Name}).Warn("did not move card to scheduled column, but should have")
 			return nil
-		}
-
-		var position = "bottom"
-		for _, l := range ic.Issue.Labels {
-			if l.Name == labelPrioHigh || l.Name == labelPrioHighest {
-				position = "top"
-				break
-			}
-		}
-
-		err = common.MoveProjectCard(s.githubTokenGenerator, org, *cardID, *repocfg.Columns.Scheduled, position)
-		if err != nil {
-			return err
 		}
 
 		msg := "Issue scheduled"

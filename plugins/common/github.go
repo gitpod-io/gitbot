@@ -16,17 +16,12 @@ import (
 
 func FindCardByIssueURL(gh github.Client, org, repo string, number int, col int) (cardID *int, err error) {
 	issueURL := fmt.Sprintf("https://api.github.com/repos/%s/%s/issues/%v", org, repo, number)
-
-	// Funny fact: this also returns cards from other columns, even in other projects
-	inboxCards, err := gh.GetColumnProjectCards(org, col)
+	card, err := gh.GetColumnProjectCard(org, col, issueURL)
 	if err != nil {
 		return
 	}
-	for _, c := range inboxCards {
-		if c.ContentURL == issueURL {
-			cardID = &c.ID
-			break
-		}
+	if card != nil {
+		cardID = &card.ID
 	}
 	return
 }
