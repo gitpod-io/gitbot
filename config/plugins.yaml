@@ -94,6 +94,10 @@ external_plugins:
     - issues
     - issue_comment
     - pull_request
+  - name: blunderbuss
+    endpoint: http://blunderbuss.prow.svc.cluster.local:8787
+    events:
+    - pull_request
   "gitpod-io/gitpod-test-repo":
   - name: groundwork
     endpoint: http://groundwork.prow.svc.cluster.local:8787
@@ -116,9 +120,15 @@ external_plugins:
     events:
     - pull_request
     - issue_comment
+  - name: blunderbuss
+    endpoint: http://blunderbuss.prow.svc.cluster.local:8787
+    events:
+    - pull_request
 
 config_updater:
   maps:
+    config/blunderbuss.yaml:
+      name: blunderbussConfig
     config/config.yaml:
       name: config
     config/plugins.yaml:
@@ -129,10 +139,6 @@ config_updater:
       name: groundwork
     config/customlabels.yaml:
       name: customlabels
-
-blunderbuss:
-  request_count: 1
-  use_status_availability: true
 
 size:
   s: 10

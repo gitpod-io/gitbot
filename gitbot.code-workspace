@@ -1,6 +1,7 @@
 {
     "folders": [
        { "path": "." },
+       { "path": "plugins/blunderbuss" },
        { "path": "plugins/common" },
        { "path": "plugins/groundwork" },
        { "path": "plugins/projectmanager" },
