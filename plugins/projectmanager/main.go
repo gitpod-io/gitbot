@@ -338,8 +338,10 @@ func (s *server) updateMatchingColumn(ie github.IssueEvent, log *logrus.Entry) e
 				}
 
 				if cardID == nil {
-					log.Infof("Creating a new card issue #%d in column {%v}", e.number, managedColumn)
-					err = s.addIssueToColumn(gc, *managedColumn.ID, e, position)
+					if len(managedColumn.Labels) > 0 {
+						log.Infof("Creating a new card issue #%d in column {%v}", e.number, managedColumn)
+						err = s.addIssueToColumn(gc, *managedColumn.ID, e, position)
+					}
 				} else {
 					log.Infof("Found card %d, moving to column {%v}", cardID, managedColumn)
 					err = common.MoveProjectCard(s.githubTokenGenerator, e.org, *cardID, *managedColumn.ID, position)
