@@ -340,7 +340,6 @@ func handle(ghc githubClient, roc repoownersClient, log *logrus.Entry, reviewerC
 		log.Infof("Skipping draft PR #%d", pr.Number)
 		return nil
 	}
-
 	oc, err := roc.LoadRepoOwners(repo.Owner.Login, repo.Name, pr.Base.Ref)
 	if err != nil {
 		return fmt.Errorf("error loading RepoOwners: %w", err)
