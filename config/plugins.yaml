@@ -88,6 +88,7 @@ external_plugins:
     endpoint: http://projectmanager.prow.svc.cluster.local:8787
     events:
     - issues
+    - pull_request
   - name: customlabels
     endpoint: http://customlabels.prow.svc.cluster.local:8787
     events:
@@ -105,6 +106,7 @@ external_plugins:
     endpoint: http://projectmanager.prow.svc.cluster.local:8787
     events:
     - issues
+    - pull_request
   - name: customlabels
     endpoint: http://customlabels.prow.svc.cluster.local:8787
     events:
