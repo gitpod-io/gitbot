@@ -160,6 +160,8 @@ func (s *server) updatePullRequests(prs []pullRequest, team string) (teamDeploye
 			err := s.gh.AddLabel(org, repo, pr.Number, teamDeployedLabel)
 			if err != nil {
 				errs = append(errs, err)
+			} else {
+				pr.Labels[teamDeployedLabel] = struct{}{}
 			}
 		}
 
