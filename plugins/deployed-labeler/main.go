@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"k8s.io/test-infra/pkg/flagutil"
@@ -109,14 +110,15 @@ func (s *server) markDeployedPR(w http.ResponseWriter, req *http.Request) {
 			s.log.Errorf("team and commit are required parameters. Team: %v, commit: %v", team, commitSHA)
 			break
 		}
-		mergedPrs, errors := s.handleMarkDeployedPRs(commitSHA, team)
-		msg := struct {
-			MergedPullRequests []string `json:"mergedPullRequests"`
-			Errors             []error  `json:"errors"`
-		}{
-			MergedPullRequests: mergedPrs,
-			Errors:             errors,
+
+		var msg struct {
+			DeployedPRs struct {
+				Team []string `json:"team"`
+				All  []string `json:"all"`
+			} `json:"deployedPRs"`
+			Errors []error `json:"errors"`
 		}
+		msg.DeployedPRs.Team, msg.DeployedPRs.All, msg.Errors = s.handleMarkDeployedPRs(req.Context(), commitSHA, team)
 
 		enc := json.NewEncoder(w)
 		enc.SetIndent("", "  ")
@@ -129,54 +131,103 @@ func (s *server) markDeployedPR(w http.ResponseWriter, req *http.Request) {
 
 // handleMarkDeployedPRs adds the 'deployed: <team>' label to pull requests that are associated to merged commits,
 // as long as they have the label 'team: <team>' .
-func (s *server) handleMarkDeployedPRs(commitSHA, team string) (mergedPrs []string, errors []error) {
-	containsTeamLabel := false
-
-	q, err := s.getMergedPRs(commitSHA)
+func (s *server) handleMarkDeployedPRs(ctx context.Context, commitSHA, team string) (teamDeployedPRs, allDeployedPRs []string, errors []error) {
+	prs, err := s.getMergedPRs(ctx, commitSHA)
 	if err != nil {
-		return nil, append(errors, err)
+		return nil, nil, []error{err}
 	}
 
-	for _, mergedCommits := range q.Organization.Repository.DefaultBranchRef.Target.Commit.History.Nodes {
-		for _, associatedPRs := range mergedCommits.AssociatedPullRequests.Nodes {
-			containsTeamLabel = false
+	return s.updatePullRequests(prs, team)
+}
 
-			for _, label := range associatedPRs.Labels.Nodes {
-				if containsTeamLabel = label.Name == githubv4.String(fmt.Sprintf("team: %s", team)); containsTeamLabel {
-					err := s.gh.AddLabel("gitpod-io", "gitpod", int(associatedPRs.Number), fmt.Sprintf("deployed: %s", team))
-					if err != nil {
-						errors = append(errors, err)
-					} else {
-						mergedPrs = append(mergedPrs, string(associatedPRs.URL))
-					}
+const (
+	org             = "gitpod-io"
+	repo            = "gitpod"
+	labelDeployed   = "deployed"
+	labelPrefixTeam = "team: "
+)
 
-					break
+func (s *server) updatePullRequests(prs []pullRequest, team string) (teamDeployed []string, allDeployed []string, errs []error) {
+	for _, pr := range prs {
+		lblTeam := teamLabel(team)
+		if _, belongs := pr.Labels[lblTeam]; !belongs {
+			continue
+		}
+
+		teamDeployedLabel := deployedLabel(team)
+		if _, hasLabel := pr.Labels[teamDeployedLabel]; !hasLabel {
+			teamDeployed = append(teamDeployed, pr.URL)
+			err := s.gh.AddLabel(org, repo, pr.Number, teamDeployedLabel)
+			if err != nil {
+				errs = append(errs, err)
+			}
+		}
+
+		allTeamsDeployed := true
+		for lbl := range pr.Labels {
+			if strings.HasPrefix(lbl, labelPrefixTeam) {
+				team := strings.TrimPrefix(lbl, labelPrefixTeam)
+				if _, deployed := pr.Labels[deployedLabel(team)]; !deployed {
+					allTeamsDeployed = false
 				}
 			}
 		}
+		if _, hasLabel := pr.Labels[labelDeployed]; allTeamsDeployed && !hasLabel {
+			allDeployed = append(allDeployed, pr.URL)
+			err := s.gh.AddLabel(org, repo, pr.Number, labelDeployed)
+			if err != nil {
+				errs = append(errs, err)
+			}
+		}
 	}
-	return mergedPrs, nil
+	return
 }
+
+func deployedLabel(team string) string { return fmt.Sprintf("%s: %s", labelDeployed, team) }
+func teamLabel(team string) string     { return labelPrefixTeam + team }
 
 // getMergedPRs returns a query object which contains 100 commits and its associated PRs
 // that are present in the default branch's commit tree, as long as they were merged before the commit
 // passed as an argument.
-func (s *server) getMergedPRs(commitSHA string) (query, error) {
+func (s *server) getMergedPRs(ctx context.Context, commitSHA string) ([]pullRequest, error) {
 	variables := map[string]interface{}{
-		"org":  githubv4.String("gitpod-io"),
-		"repo": githubv4.String("gitpod"),
+		"org":  githubv4.String(org),
+		"repo": githubv4.String(repo),
 		// We always want to start the cursor at the given commit
 		"commitCursor": githubv4.String(fmt.Sprintf("%s %s", commitSHA, "0")),
 	}
 
 	var q query
 
-	err := s.gh.Query(context.TODO(), &q, variables)
+	err := s.gh.Query(ctx, &q, variables)
 	if err != nil {
 		s.log.WithError(err).Error("Error running query.")
-		return q, err
+		return nil, err
 	}
-	return q, nil
+
+	commits := q.Organization.Repository.DefaultBranchRef.Target.Commit.History.Nodes
+	res := make([]pullRequest, 0, len(commits))
+	for _, c := range commits {
+		for _, rpr := range c.AssociatedPullRequests.Nodes {
+			pr := pullRequest{
+				Number: int(rpr.Number),
+				URL:    string(rpr.URL),
+				Labels: make(map[string]struct{}, len(rpr.Labels.Nodes)),
+			}
+			for _, lbl := range rpr.Labels.Nodes {
+				pr.Labels[string(lbl.Name)] = struct{}{}
+			}
+			res = append(res, pr)
+		}
+	}
+
+	return res, nil
+}
+
+type pullRequest struct {
+	Number int
+	URL    string
+	Labels map[string]struct{}
 }
 
 type query struct {
