@@ -53,6 +53,14 @@ var (
 		github.IssueActionUnlabeled: true,
 		github.IssueActionClosed:    true,
 	}
+
+	handlePullRequestActions = map[github.PullRequestEventAction]bool{
+		github.PullRequestActionOpened:    true,
+		github.PullRequestActionReopened:  true,
+		github.PullRequestActionLabeled:   true,
+		github.PullRequestActionUnlabeled: true,
+		github.PullRequestActionClosed:    true,
+	}
 )
 
 type options struct {
@@ -209,12 +217,22 @@ func (s *server) handleEvent(eventType, eventGUID string, payload []byte) error 
 
 	switch eventType {
 	case "issues":
-		var ic github.IssueEvent
-		if err := json.Unmarshal(payload, &ic); err != nil {
+		var ie github.IssueEvent
+		if err := json.Unmarshal(payload, &ie); err != nil {
 			return err
 		}
 		go func() {
-			if err := s.handleIssueOrPullRequest(ic, l); err != nil {
+			if err := s.handleIssue(ie, l); err != nil {
+				s.log.WithError(err).WithFields(l.Data).Info("Error handling event.")
+			}
+		}()
+	case "pull_request":
+		var pre github.PullRequestEvent
+		if err := json.Unmarshal(payload, &pre); err != nil {
+			return err
+		}
+		go func() {
+			if err := s.handlePullRequest(pre, l); err != nil {
 				s.log.WithError(err).WithFields(l.Data).Info("Error handling event.")
 			}
 		}()
@@ -242,21 +260,12 @@ type eventData struct {
 	repo   string
 	state  string
 	labels []github.Label
-	remove bool
 }
 
-func (s *server) handleIssueOrPullRequest(ie github.IssueEvent, l *logrus.Entry) error {
+func (s *server) handleIssue(ie github.IssueEvent, l *logrus.Entry) error {
 	if !handleIssueActions[ie.Action] {
 		return nil
 	}
-
-	return s.updateMatchingColumn(ie, l)
-}
-
-func (s *server) updateMatchingColumn(ie github.IssueEvent, log *logrus.Entry) error {
-	gc := s.gh
-	orgRepos := s.mgrCfg.OrgRepos
-
 	e := eventData{
 		id:     ie.Issue.ID,
 		number: ie.Issue.Number,
@@ -265,8 +274,30 @@ func (s *server) updateMatchingColumn(ie github.IssueEvent, log *logrus.Entry) e
 		repo:   ie.Repo.Name,
 		state:  ie.Issue.State,
 		labels: ie.Issue.Labels,
-		remove: ie.Action == github.IssueActionUnlabeled,
 	}
+	return s.updateMatchingColumn(e, l)
+}
+
+func (s *server) handlePullRequest(ie github.PullRequestEvent, l *logrus.Entry) error {
+	if !handlePullRequestActions[ie.Action] {
+		return nil
+	}
+	e := eventData{
+		id:     ie.PullRequest.ID,
+		number: ie.PullRequest.Number,
+		isPR:   true,
+		org:    ie.Repo.Owner.Login,
+		repo:   ie.Repo.Name,
+		state:  ie.PullRequest.State,
+		labels: ie.PullRequest.Labels,
+	}
+	return s.updateMatchingColumn(e, l)
+}
+
+func (s *server) updateMatchingColumn(e eventData, log *logrus.Entry) error {
+	gc := s.gh
+	orgRepos := s.mgrCfg.OrgRepos
+
 	log.Infof("Processing event {%v}", e)
 
 	var err error
@@ -339,7 +370,7 @@ func (s *server) updateMatchingColumn(ie github.IssueEvent, log *logrus.Entry) e
 
 				if cardID == nil {
 					if len(managedColumn.Labels) > 0 {
-						log.Infof("Creating a new card issue #%d in column {%v}", e.number, managedColumn)
+						log.Infof("Creating a new card for issue/PR #%d in column {%v}", e.number, managedColumn)
 						err = s.addIssueToColumn(gc, *managedColumn.ID, e, position)
 					}
 				} else {
@@ -361,11 +392,10 @@ func (s *server) updateMatchingColumn(ie github.IssueEvent, log *logrus.Entry) e
 func (s *server) addIssueToColumn(gc githubClient, columnID int, e eventData, position string) error {
 	// Create project card and add this PR
 	projectCard := github.ProjectCard{}
-	if e.isPR {
-		return nil
-	}
-
 	projectCard.ContentType = "Issue"
+	if e.isPR {
+		projectCard.ContentType = "PullRequest"
+	}
 	projectCard.ContentID = e.id
 
 	newCard, err := gc.CreateProjectCard(e.org, columnID, projectCard)
