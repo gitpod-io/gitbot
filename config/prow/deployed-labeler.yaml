@@ -1,15 +1,39 @@
 ---
+kind: ManagedCertificate
+apiVersion: networking.gke.io/v1beta1
+metadata:
+  name: deployed-labeler
+  namespace: prow
+spec:
+  domains:
+    - deployed-labeler.gitpod-dev.com
+---
 apiVersion: v1
 kind: Service
 metadata:
   namespace: prow
   name: deployed-labeler
+  annotations:
+    cloud.google.com/backend-config: '{"ports": {"http": "deployed-labeler"}}'
 spec:
   selector:
     app: deployed-labeler
   ports:
-    - port: 8080
-  type: LoadBalancer
+    - name: http
+      protocol: TCP
+      port: 8080
+  type: NodePort
+---
+kind: BackendConfig
+apiVersion: cloud.google.com/v1
+metadata:
+  name: deployed-labeler
+  namespace: prow
+spec:
+  healthCheck:
+    # This has to be set manually to ensure that the GCP ingress validates the right health-check endpoint
+    port: 30299
+    requestPath: /healthz
 ---
 apiVersion: apps/v1
 kind: Deployment

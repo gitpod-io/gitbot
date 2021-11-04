@@ -150,3 +150,12 @@ apiVersion: v1
 kind: Namespace
 metadata:
   name: test-pods
+---
+kind: ManagedCertificate
+apiVersion: networking.gke.io/v1beta1
+metadata:
+  name: prow
+  namespace: prow
+spec:
+  domains:
+    - prow.gitpod-dev.com
