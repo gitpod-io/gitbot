@@ -1,0 +1,31 @@
+kind: Ingress
+apiVersion: extensions/v1beta1
+metadata:
+  name: deployed-labeler
+  namespace: prow
+  annotations:
+    kubernetes.io/ingress.class: gce
+    networking.gke.io/managed-certificates: deployed-labeler
+spec:
+  rules:
+    - host: deployed-labeler.gitpod-dev.com
+      http:
+        paths:
+          - path: /*
+            pathType: ImplementationSpecific
+            backend:
+              serviceName: deployed-labeler
+              servicePort: 8080
+    - host: prow.gitpod-dev.com
+      http:
+        paths:
+          - path: /*
+            pathType: ImplementationSpecific
+            backend:
+              serviceName: deck
+              servicePort: 80
+          - path: /hook/*
+            pathType: ImplementationSpecific
+            backend:
+              serviceName: hook
+              servicePort: 8888
