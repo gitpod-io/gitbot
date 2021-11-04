@@ -1,5 +1,5 @@
 kind: Ingress
-apiVersion: extensions/v1beta1
+apiVersion: extensions/v1
 metadata:
   name: deployed-labeler
   namespace: prow
@@ -14,18 +14,7 @@ spec:
           - path: /*
             pathType: ImplementationSpecific
             backend:
-              serviceName: deployed-labeler
-              servicePort: 8080
-    - host: prow.gitpod-dev.com
-      http:
-        paths:
-          - path: /*
-            pathType: ImplementationSpecific
-            backend:
-              serviceName: deck
-              servicePort: 80
-          - path: /hook/*
-            pathType: ImplementationSpecific
-            backend:
-              serviceName: hook
-              servicePort: 8888
+              service:
+                name: deployed-labeler
+                port: 
+                  number: 8080
