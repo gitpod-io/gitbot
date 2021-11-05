@@ -122,6 +122,11 @@ metadata:
     kubernetes.io/ingress.class: gce
     networking.gke.io/managed-certificates: prow
 spec:
+  defaultBackend:
+    service:
+      name: deck
+      port:
+        number: 80
   rules:
   - host: prow.gitpod-dev.com
     http:
@@ -140,6 +145,13 @@ spec:
             name: hook
             port:
               number: 8888
+      - path: /tide
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            name: tide
+            port:
+              number: 80
 ---
 apiVersion: v1
 kind: Namespace
