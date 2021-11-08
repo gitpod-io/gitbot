@@ -145,13 +145,6 @@ spec:
             name: hook
             port:
               number: 8888
-      - path: /tide
-        pathType: ImplementationSpecific
-        backend:
-          service:
-            name: tide
-            port:
-              number: 80
 ---
 apiVersion: v1
 kind: Namespace
