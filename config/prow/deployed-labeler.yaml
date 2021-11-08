@@ -8,6 +8,27 @@ spec:
   domains:
     - deployed-labeler.gitpod-dev.com
 ---
+kind: Ingress
+apiVersion: extensions/v1
+metadata:
+  name: deployed-labeler
+  namespace: prow
+  annotations:
+    kubernetes.io/ingress.class: gce
+    networking.gke.io/managed-certificates: deployed-labeler
+spec:
+  rules:
+    - host: deployed-labeler.gitpod-dev.com
+      http:
+        paths:
+          - path: /*
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: deployed-labeler
+                port: 
+                  name: http
+---
 apiVersion: v1
 kind: Service
 metadata:
@@ -22,6 +43,11 @@ spec:
     - name: http
       protocol: TCP
       port: 8080
+      nodePort: 30303
+    - name: health
+      protocol: TCP
+      port: 8081
+      nodePort: 30692
   type: NodePort
 ---
 kind: BackendConfig
@@ -32,6 +58,7 @@ metadata:
 spec:
   healthCheck:
     # This has to be set manually to ensure that the GCP ingress validates the right health-check endpoint
+    # We sincerely do not know where the number 30299 comes from, but it is working with this config
     port: 30299
     requestPath: /healthz
 ---
@@ -71,7 +98,7 @@ spec:
             - -hmac=/etc/webhook/hmac
           ports:
             - name: http
-              containerPort: 8787
+              containerPort: 8080
           volumeMounts:
             - name: hmac
               mountPath: /etc/webhook
