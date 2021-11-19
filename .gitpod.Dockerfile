@@ -12,24 +12,24 @@ RUN useradd -l -u 33333 -G sudo -md /home/gitpod -s /bin/bash -p gitpod gitpod \
 ### Docker client ###
 RUN curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add - \
     # 'cosmic' not supported
-    && add-apt-repository -yu "deb [arch=amd64] https://download.docker.com/linux/ubuntu bionic stable" \
-    && apt-get install -yq docker-ce-cli=5:18.09.0~3-0~ubuntu-bionic \
+    && add-apt-repository -yu "deb [arch=amd64] https://download.docker.com/linux/ubuntu focal stable" \
+    && apt-get install -yq docker-ce-cli \
     && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/*
 
 ### Helm ###
-RUN curl -fsSL https://get.helm.sh/helm-v3.2.4-linux-amd64.tar.gz \
+RUN curl -fsSL https://get.helm.sh/helm-v3.7.0-linux-amd64.tar.gz \
     | tar -xzvC /usr/local/bin --strip-components=1 \
     && helm completion bash > /usr/share/bash-completion/completions/helm
 
 ### kubernetes ###
 # https://github.com/kubernetes/kubernetes/releases/
 RUN mkdir -p /usr/local/kubernetes/ && \
-    curl -fsSL https://github.com/kubernetes/kubernetes/releases/download/v1.20.0/kubernetes.tar.gz | \ 
+    curl -fsSL https://github.com/kubernetes/kubernetes/releases/download/v1.22.4/kubernetes.tar.gz | \
     tar -xzvC /usr/local/kubernetes/ --strip-components=1 && \
     KUBERNETES_SKIP_CONFIRM=true /usr/local/kubernetes/cluster/get-kube-binaries.sh
 ENV PATH=$PATH:/usr/local/kubernetes/cluster/:/usr/local/kubernetes/client/bin/
 
-## terraform 
+## terraform
 # https://releases.hashicorp.com/terraform/
 RUN curl -fsSL https://apt.releases.hashicorp.com/gpg | apt-key add - && \
     apt-add-repository "deb [arch=$(dpkg --print-architecture)] https://apt.releases.hashicorp.com $(lsb_release -cs) main" && \
@@ -50,7 +50,7 @@ RUN apt-get install -y apt-transport-https curl gnupg && \
     apt-get install -y bazel
 
 # Go
-RUN curl -L https://golang.org/dl/go1.16.5.linux-amd64.tar.gz | tar -C /usr/local -xzv
+RUN curl -L https://golang.org/dl/go1.17.2.linux-amd64.tar.gz | tar -C /usr/local -xzv
 ENV PATH=$PATH:/usr/local/go/bin
 
 ### Google Cloud ###
@@ -58,7 +58,7 @@ ENV PATH=$PATH:/usr/local/go/bin
 ARG GCS_DIR=/opt/google-cloud-sdk
 ENV PATH=$GCS_DIR/bin:$PATH
 RUN mkdir $GCS_DIR \
-    && curl -fsSL https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-sdk-303.0.0-linux-x86_64.tar.gz \
+    && curl -fsSL https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-sdk-365.0.0-linux-x86_64.tar.gz \
     | tar -xzvC /opt \
     && /opt/google-cloud-sdk/install.sh --quiet --usage-reporting=false --bash-completion=true \
     --additional-components docker-credential-gcr alpha beta \
