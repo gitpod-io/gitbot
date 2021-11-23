@@ -1,29 +1,7 @@
-approve:
-  - repos:
-      - gitpod-io/gitbot
-    require_self_approval: true
-    lgtm_acts_as_approve: true
-    commandHelpLink: https://prow.gitpod-dev.com/command-help
-  - repos:
-      - gitpod-io/gitpod
-    require_self_approval: true
-    lgtm_acts_as_approve: true
-    issue_required: true
-    commandHelpLink: https://prow.gitpod-dev.com/command-help
-
-lgtm:
-  - repos:
-      - gitpod-io/gitbot
-      - gitpod-io/gitpod
-      - gitpod-io/gitpod-test-repo
-    review_acts_as_lgtm: true
-    store_tree_hash: true
-
 plugins:
   gitpod-io/gitbot:
     plugins:
     - config-updater
-    - approve
     - assign
     - blunderbuss
     - cat
@@ -32,7 +10,6 @@ plugins:
     - heart
     - hold
     - label
-    - lgtm
     - release-note
     - size
     - verify-owners
@@ -41,7 +18,6 @@ plugins:
     - owners-label
   gitpod-io/gitpod:
     plugins:
-    - approve
     - assign
     # - blunderbuss   ## https://gitpod.slack.com/archives/C01KGM9AW4W/p1635429357055900
     - cat
@@ -50,7 +26,6 @@ plugins:
     - heart
     - hold
     - label
-    - lgtm
     - release-note
     - size
     - verify-owners
@@ -59,7 +34,6 @@ plugins:
     - owners-label
   gitpod-io/gitpod-test-repo:
     plugins:
-    - approve
     - assign
     # - blunderbuss   ## https://gitpod.slack.com/archives/C01KGM9AW4W/p1635429357055900
     - cat
@@ -68,7 +42,6 @@ plugins:
     - help
     - heart
     - hold
-    - lgtm
     - release-note
     - size
     - verify-owners
