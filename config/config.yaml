@@ -62,6 +62,11 @@ tide:
     - do-not-merge/invalid-owners-file
     - do-not-merge/release-note-label-needed
   - repos:
+    - gitpod-io/ops
+    reviewApprovedRequired: true
+    missingLabels:
+    - do-not-merge/hold
+  - repos:
     - gitpod-io/gitpod-test-repo
     reviewApprovedRequired: true
     missingLabels:
