@@ -25,7 +25,7 @@ plugins:
     - config-updater
     - approve
     - assign
-    - blunderbuss
+    # - blunderbuss   ## https://gitpod.slack.com/archives/C01KGM9AW4W/p1635429357055900
     - cat
     - dog
     - help
