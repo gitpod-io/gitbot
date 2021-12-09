@@ -48,6 +48,7 @@ tide:
     gitpod-io/gitpod: rebase
     gitpod-io/gitpod-test-repo: rebase
     gitpod-io/gitbot: rebase
+    gitpod-io/ops: rebase
   queries:
   - repos:
     - gitpod-io/gitpod
