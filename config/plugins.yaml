@@ -75,6 +75,9 @@ plugins:
     - wip
     - yuks
     - owners-label
+  gitpod-io/ops:
+    plugins:
+    - wip
 
 external_plugins:
   "gitpod-io/gitpod":
