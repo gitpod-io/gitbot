@@ -67,6 +67,7 @@ tide:
     reviewApprovedRequired: true
     missingLabels:
     - do-not-merge/hold
+    - do-not-merge/work-in-progress
   - repos:
     - gitpod-io/gitpod-test-repo
     reviewApprovedRequired: true
