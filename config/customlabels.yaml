@@ -5,12 +5,14 @@ orgsRepos:
         - "meta"
         - "workspace"
         - "IDE"
+        - "self-hosted"
   "gitpod-io/gitpod-test-repo":
     - key: "team"
       values: 
         - "meta"
         - "workspace"
         - "IDE"
+        - "self-hosted"
     - key: "type"
       values:
         - "bug"
