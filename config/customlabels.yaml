@@ -2,14 +2,14 @@ orgsRepos:
   "gitpod-io/gitpod":
     - key: "team"
       values: 
-        - "meta"
+        - "webapp"
         - "workspace"
         - "IDE"
         - "self-hosted"
   "gitpod-io/gitpod-test-repo":
     - key: "team"
       values: 
-        - "meta"
+        - "webapp"
         - "workspace"
         - "IDE"
         - "self-hosted"
