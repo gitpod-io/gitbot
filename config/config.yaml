@@ -52,9 +52,7 @@ tide:
   queries:
   - repos:
     - gitpod-io/gitpod
-    labels:
-    - lgtm
-    - approved
+    reviewApprovedRequired: true
     missingLabels:
     # no one's setting this label yet because we don't have the external needs-rebase plugin set up yet
     - needs-rebase
@@ -80,9 +78,7 @@ tide:
     - do-not-merge/release-note-label-needed
   - repos:
     - gitpod-io/gitbot
-    labels:
-    - lgtm
-    - approved
+    reviewApprovedRequired: true
     missingLabels:
     # no one's setting this label yet because we don't have the external needs-rebase plugin set up yet
     - needs-rebase
