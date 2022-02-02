@@ -1,20 +1,29 @@
 {
-    "folders": [
-       { "path": "." },
-       { "path": "plugins/common" },
-       { "path": "plugins/groundwork" },
-       { "path": "plugins/projectmanager" },
-       { "path": "plugins/customlabels" },
-       { "path": "plugins/observer" },
-       { "path": "plugins/willkommen" },
-       { "path": "plugins/deployed-labeler" }
-    ],
-    "settings": {
-       "go.formatTool": "goimports",
-       "go.useLanguageServer": true,
-       "gopls": {
-          "allowModfileModifications": true
-       }
-    }
- }
- 
+   "folders": [
+      {
+         "path": "."
+      },
+      {
+         "path": "plugins/common"
+      },
+      {
+         "path": "plugins/customlabels"
+      },
+      {
+         "path": "plugins/observer"
+      },
+      {
+         "path": "plugins/willkommen"
+      },
+      {
+         "path": "plugins/deployed-labeler"
+      }
+   ],
+   "settings": {
+      "go.formatTool": "goimports",
+      "go.useLanguageServer": true,
+      "gopls": {
+         "allowModfileModifications": true
+      }
+   }
+}

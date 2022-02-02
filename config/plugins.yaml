@@ -22,105 +22,83 @@ lgtm:
 plugins:
   gitpod-io/gitbot:
     plugins:
-    - config-updater
-    - approve
-    - assign
-    # - blunderbuss   ## https://gitpod.slack.com/archives/C01KGM9AW4W/p1635429357055900
-    - cat
-    - dog
-    - help
-    - heart
-    - hold
-    - label
-    - lgtm
-    - release-note
-    - size
-    - verify-owners
-    - wip
-    - yuks
-    - owners-label
+      - config-updater
+      - approve
+      - assign
+      # - blunderbuss   ## https://gitpod.slack.com/archives/C01KGM9AW4W/p1635429357055900
+      - cat
+      - dog
+      - help
+      - heart
+      - hold
+      - label
+      - lgtm
+      - release-note
+      - size
+      - verify-owners
+      - wip
+      - yuks
+      - owners-label
   gitpod-io/gitpod:
     plugins:
-    - approve
-    - assign
-    # - blunderbuss   ## https://gitpod.slack.com/archives/C01KGM9AW4W/p1635429357055900
-    - cat
-    - dog
-    - help
-    - heart
-    - hold
-    - label
-    - lgtm
-    - release-note
-    - size
-    - verify-owners
-    - wip
-    - yuks
-    - owners-label
+      - approve
+      - assign
+      # - blunderbuss   ## https://gitpod.slack.com/archives/C01KGM9AW4W/p1635429357055900
+      - cat
+      - dog
+      - help
+      - heart
+      - hold
+      - label
+      - lgtm
+      - release-note
+      - size
+      - verify-owners
+      - wip
+      - yuks
+      - owners-label
   gitpod-io/gitpod-test-repo:
     plugins:
-    - approve
-    - assign
-    # - blunderbuss   ## https://gitpod.slack.com/archives/C01KGM9AW4W/p1635429357055900
-    - cat
-    - dog
-    - goose
-    - help
-    - heart
-    - hold
-    - lgtm
-    - release-note
-    - size
-    - verify-owners
-    - wip
-    - yuks
-    - owners-label
+      - approve
+      - assign
+      # - blunderbuss   ## https://gitpod.slack.com/archives/C01KGM9AW4W/p1635429357055900
+      - cat
+      - dog
+      - goose
+      - help
+      - heart
+      - hold
+      - lgtm
+      - release-note
+      - size
+      - verify-owners
+      - wip
+      - yuks
+      - owners-label
   gitpod-io/ops:
     plugins:
-    - wip
+      - wip
 
 external_plugins:
   "gitpod-io/gitpod":
-  - name: groundwork
-    endpoint: http://groundwork.prow.svc.cluster.local:8787
-    events:
-    - issues
-    - issue_comment
-    - pull_request
-  - name: projectmanager
-    endpoint: http://projectmanager.prow.svc.cluster.local:8787
-    events:
-    - issues
-    - pull_request
-  - name: customlabels
-    endpoint: http://customlabels.prow.svc.cluster.local:8787
-    events:
-    - issues
-    - issue_comment
-    - pull_request
+    - name: customlabels
+      endpoint: http://customlabels.prow.svc.cluster.local:8787
+      events:
+        - issues
+        - issue_comment
+        - pull_request
   "gitpod-io/gitpod-test-repo":
-  - name: groundwork
-    endpoint: http://groundwork.prow.svc.cluster.local:8787
-    events:
-    - issues
-    - pull_request
-    - issue_comment
-  - name: projectmanager
-    endpoint: http://projectmanager.prow.svc.cluster.local:8787
-    events:
-    - issues
-    - pull_request
-  - name: customlabels
-    endpoint: http://customlabels.prow.svc.cluster.local:8787
-    events:
-    - issues
-    - issue_comment
-    - pull_request
-  - name: willkommen
-    endpoint: http://willkommen.prow.svc.cluster.local:8787
-    events:
-    - pull_request
-    - issue_comment
+    - name: customlabels
+      endpoint: http://customlabels.prow.svc.cluster.local:8787
+      events:
+        - issues
+        - issue_comment
+        - pull_request
+    - name: willkommen
+      endpoint: http://willkommen.prow.svc.cluster.local:8787
+      events:
+        - pull_request
+        - issue_comment
 
 config_updater:
   maps:
@@ -128,10 +106,6 @@ config_updater:
       name: config
     config/plugins.yaml:
       name: plugins
-    config/projectmanager.yaml:
-      name: projectmanager
-    config/groundwork.yaml:
-      name: groundwork
     config/customlabels.yaml:
       name: customlabels
 
