@@ -8,7 +8,6 @@ plugins:
       - release-note
       - size
       - wip
-      - yuks
   gitpod-io/gitpod:
     plugins:
       - help
@@ -17,7 +16,6 @@ plugins:
       - release-note
       - size
       - wip
-      - yuks
   gitpod-io/gitpod-test-repo:
     plugins:
       - help
@@ -25,7 +23,6 @@ plugins:
       - release-note
       - size
       - wip
-      - yuks
   gitpod-io/ops:
     plugins:
       - wip
