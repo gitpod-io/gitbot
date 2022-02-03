@@ -2,8 +2,6 @@ plugins:
   gitpod-io/gitbot:
     plugins:
       - config-updater
-      - cat
-      - dog
       - help
       - heart
       - hold
@@ -14,8 +12,6 @@ plugins:
       - yuks
   gitpod-io/gitpod:
     plugins:
-      - cat
-      - dog
       - help
       - heart
       - hold
@@ -26,9 +22,6 @@ plugins:
       - yuks
   gitpod-io/gitpod-test-repo:
     plugins:
-      - cat
-      - dog
-      - goose
       - help
       - heart
       - hold
