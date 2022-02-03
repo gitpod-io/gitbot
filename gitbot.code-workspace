@@ -7,9 +7,6 @@
          "path": "plugins/common"
       },
       {
-         "path": "plugins/observer"
-      },
-      {
          "path": "plugins/deployed-labeler"
       }
    ],
