@@ -4,7 +4,6 @@ plugins:
       - config-updater
       - help
       - hold
-      - label
       - release-note
       - size
       - wip
@@ -12,7 +11,6 @@ plugins:
     plugins:
       - help
       - hold
-      - label
       - release-note
       - size
       - wip
