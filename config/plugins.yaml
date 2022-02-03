@@ -40,11 +40,6 @@ external_plugins:
         - issues
         - issue_comment
         - pull_request
-    - name: willkommen
-      endpoint: http://willkommen.prow.svc.cluster.local:8787
-      events:
-        - pull_request
-        - issue_comment
 
 config_updater:
   maps:
