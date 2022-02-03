@@ -7,9 +7,6 @@
          "path": "plugins/common"
       },
       {
-         "path": "plugins/customlabels"
-      },
-      {
          "path": "plugins/observer"
       },
       {
