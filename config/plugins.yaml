@@ -12,10 +12,8 @@ plugins:
       - label
       - release-note
       - size
-      - verify-owners
       - wip
       - yuks
-      - owners-label
   gitpod-io/gitpod:
     plugins:
       - assign
@@ -28,10 +26,8 @@ plugins:
       - label
       - release-note
       - size
-      - verify-owners
       - wip
       - yuks
-      - owners-label
   gitpod-io/gitpod-test-repo:
     plugins:
       - assign
@@ -44,10 +40,8 @@ plugins:
       - hold
       - release-note
       - size
-      - verify-owners
       - wip
       - yuks
-      - owners-label
   gitpod-io/ops:
     plugins:
       - wip
