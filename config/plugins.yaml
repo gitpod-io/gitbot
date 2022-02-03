@@ -3,7 +3,6 @@ plugins:
     plugins:
       - config-updater
       - help
-      - heart
       - hold
       - label
       - release-note
@@ -13,7 +12,6 @@ plugins:
   gitpod-io/gitpod:
     plugins:
       - help
-      - heart
       - hold
       - label
       - release-note
@@ -23,7 +21,6 @@ plugins:
   gitpod-io/gitpod-test-repo:
     plugins:
       - help
-      - heart
       - hold
       - release-note
       - size
