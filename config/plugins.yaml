@@ -2,21 +2,18 @@ plugins:
   gitpod-io/gitbot:
     plugins:
       - config-updater
-      - help
       - hold
       - release-note
       - size
       - wip
   gitpod-io/gitpod:
     plugins:
-      - help
       - hold
       - release-note
       - size
       - wip
   gitpod-io/gitpod-test-repo:
     plugins:
-      - help
       - hold
       - release-note
       - size
