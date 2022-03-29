@@ -149,20 +149,25 @@ const (
 
 func (s *server) updatePullRequests(prs []pullRequest, team string) (teamDeployed []string, allDeployed []string, errs []error) {
 	for _, pr := range prs {
+
 		lblTeam := teamLabel(team)
 		if _, belongs := pr.Labels[lblTeam]; !belongs {
+			s.log.Infof("PR %v does not belong to %v, skipping it", pr.Number, team)
 			continue
 		}
 
 		teamDeployedLabel := deployedLabel(team)
 		if _, hasLabel := pr.Labels[teamDeployedLabel]; !hasLabel {
 			teamDeployed = append(teamDeployed, pr.URL)
+			s.log.Infof("Adding %v label to %v", teamDeployedLabel, pr.Number)
 			err := s.gh.AddLabel(org, repo, pr.Number, teamDeployedLabel)
 			if err != nil {
 				errs = append(errs, err)
 			} else {
 				pr.Labels[teamDeployedLabel] = struct{}{}
 			}
+		} else {
+			s.log.Infof("PR %v already has label %v", pr.Number, teamDeployedLabel)
 		}
 
 		allTeamsDeployed := true
@@ -176,10 +181,13 @@ func (s *server) updatePullRequests(prs []pullRequest, team string) (teamDeploye
 		}
 		if _, hasLabel := pr.Labels[labelDeployed]; allTeamsDeployed && !hasLabel {
 			allDeployed = append(allDeployed, pr.URL)
+			s.log.Infof("Adding %v label to %v", labelDeployed, pr.Number)
 			err := s.gh.AddLabel(org, repo, pr.Number, labelDeployed)
 			if err != nil {
 				errs = append(errs, err)
 			}
+		} else {
+			s.log.Infof("PR %v already has label %v", pr.Number, labelDeployed)
 		}
 	}
 	return
@@ -192,11 +200,11 @@ func teamLabel(team string) string     { return labelPrefixTeam + team }
 // that are present in the default branch's commit tree, as long as they were merged before the commit
 // passed as an argument.
 func (s *server) getMergedPRs(ctx context.Context, commitSHA string) ([]pullRequest, error) {
+	s.log.Infof("Fetching merged PRs for commit %v", commitSHA)
 	variables := map[string]interface{}{
-		"org":  githubv4.String(org),
-		"repo": githubv4.String(repo),
-		// We always want to start the cursor at the given commit
-		"commitCursor": githubv4.String(fmt.Sprintf("%s %s", commitSHA, "0")),
+		"org":    githubv4.String(org),
+		"repo":   githubv4.String(repo),
+		"commit": githubv4.GitObjectID(commitSHA),
 	}
 
 	var q query
@@ -207,7 +215,7 @@ func (s *server) getMergedPRs(ctx context.Context, commitSHA string) ([]pullRequ
 		return nil, err
 	}
 
-	commits := q.Organization.Repository.DefaultBranchRef.Target.Commit.History.Nodes
+	commits := q.Organization.Repository.Object.Commit.History.Nodes
 	res := make([]pullRequest, 0, len(commits))
 	for _, c := range commits {
 		for _, rpr := range c.AssociatedPullRequests.Nodes {
@@ -231,31 +239,28 @@ type pullRequest struct {
 	URL    string
 	Labels map[string]struct{}
 }
-
 type query struct {
 	Organization struct {
 		Repository struct {
-			DefaultBranchRef struct {
-				Target struct {
-					Commit struct {
-						History struct {
-							Nodes []struct {
-								AssociatedPullRequests struct {
-									Nodes []struct {
-										Number githubv4.Int
-										URL    githubv4.String
-										Labels struct {
-											Nodes []struct {
-												Name githubv4.String
-											}
-										} `graphql:"labels(first: 10)"`
-									}
-								} `graphql:"associatedPullRequests(first: 2)"`
-							}
-						} `graphql:"history(first: 100, after: $commitCursor)"`
-					} `graphql:"... on Commit"`
-				}
-			}
+			Object struct {
+				Commit struct {
+					History struct {
+						Nodes []struct {
+							AssociatedPullRequests struct {
+								Nodes []struct {
+									Number githubv4.Int
+									URL    githubv4.String
+									Labels struct {
+										Nodes []struct {
+											Name githubv4.String
+										}
+									} `graphql:"labels(first: 10)"`
+								}
+							} `graphql:"associatedPullRequests(first: 2)"`
+						}
+					} `graphql:"history(first: 100)"`
+				} `graphql:"... on Commit"`
+			} `graphql:"object(oid: $commit)"`
 		} `graphql:"repository(name: $repo)"`
 	} `graphql:"organization(login: $org)"`
 }
