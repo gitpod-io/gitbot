@@ -83,14 +83,4 @@ Now push the image
 TAG=1 ./dev/push-image.sh
 ```
 
-Connect to the prow cluster in gitpod-core-dev
-
-```sh
-gcloud container clusters get-credentials prow --zone europe-west1-b --project gitpod-core-dev
-```
-
-Finally edit the deployment to update the image
-
-```sh
-kubectl -n prow edit deployment deployed-labeler
-```
+Update the version for the deployed-labeler deployment in [config/prow/deployed-labeler.yaml](../../config/prow/deployed-labeler.yaml). The changes will be applied automatically when the PR is merged.
