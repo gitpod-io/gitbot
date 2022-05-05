@@ -9,7 +9,7 @@ spec:
     - deployed-labeler.gitpod-dev.com
 ---
 kind: Ingress
-apiVersion: extensions/v1
+apiVersion: networking.k8s.io/v1
 metadata:
   name: deployed-labeler
   namespace: prow
