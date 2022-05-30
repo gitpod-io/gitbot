@@ -196,7 +196,7 @@ func (s *server) updatePullRequests(prs []pullRequest, team string) (teamDeploye
 func deployedLabel(team string) string { return fmt.Sprintf("%s: %s", labelDeployed, team) }
 func teamLabel(team string) string     { return labelPrefixTeam + team }
 
-// getMergedPRs returns a query object which contains 100 commits and its associated PRs
+// getMergedPRs returns a query object which contains X commits and its associated PRs
 // that are present in the default branch's commit tree, as long as they were merged before the commit
 // passed as an argument.
 func (s *server) getMergedPRs(ctx context.Context, commitSHA string) ([]pullRequest, error) {
@@ -258,7 +258,7 @@ type query struct {
 								}
 							} `graphql:"associatedPullRequests(first: 2)"`
 						}
-					} `graphql:"history(first: 100)"`
+					} `graphql:"history(first: 300)"`
 				} `graphql:"... on Commit"`
 			} `graphql:"object(oid: $commit)"`
 		} `graphql:"repository(name: $repo)"`
