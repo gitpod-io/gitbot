@@ -205,17 +205,28 @@ func (s *server) getMergedPRs(ctx context.Context, commitSHA string) ([]pullRequ
 		"org":    githubv4.String(org),
 		"repo":   githubv4.String(repo),
 		"commit": githubv4.GitObjectID(commitSHA),
+		"cursor": (*githubv4.String)(nil), // null gets the first page
 	}
 
 	var q query
+	var commits []commitNodes
 
-	err := s.gh.Query(ctx, &q, variables)
-	if err != nil {
-		s.log.WithError(err).Error("Error running query.")
-		return nil, err
+	// we get 100 commits per page
+	// 3x100 = 300 in total
+	for i := 0; i < 3; i++ {
+		err := s.gh.Query(ctx, &q, variables)
+		if err != nil {
+			s.log.WithError(err).Error("Error running query.")
+			return nil, err
+		}
+
+		commits = append(commits, q.Organization.Repository.Object.Commit.History.Nodes...)
+		if !q.Organization.Repository.Object.Commit.History.PageInfo.HasNextPage {
+			break
+		}
+		variables["cursor"] = q.Organization.Repository.Object.Commit.History.PageInfo.EndCursor
 	}
 
-	commits := q.Organization.Repository.Object.Commit.History.Nodes
 	res := make([]pullRequest, 0, len(commits))
 	for _, c := range commits {
 		for _, rpr := range c.AssociatedPullRequests.Nodes {
@@ -245,22 +256,27 @@ type query struct {
 			Object struct {
 				Commit struct {
 					History struct {
-						Nodes []struct {
-							AssociatedPullRequests struct {
-								Nodes []struct {
-									Number githubv4.Int
-									URL    githubv4.String
-									Labels struct {
-										Nodes []struct {
-											Name githubv4.String
-										}
-									} `graphql:"labels(first: 10)"`
-								}
-							} `graphql:"associatedPullRequests(first: 2)"`
+						PageInfo struct {
+							EndCursor   githubv4.String
+							HasNextPage bool
 						}
-					} `graphql:"history(first: 300)"`
+						Nodes []commitNodes
+					} `graphql:"history(first: 100, after: $cursor)"`
 				} `graphql:"... on Commit"`
 			} `graphql:"object(oid: $commit)"`
 		} `graphql:"repository(name: $repo)"`
 	} `graphql:"organization(login: $org)"`
+}
+type commitNodes struct {
+	AssociatedPullRequests struct {
+		Nodes []struct {
+			Number githubv4.Int
+			URL    githubv4.String
+			Labels struct {
+				Nodes []struct {
+					Name githubv4.String
+				}
+			} `graphql:"labels(first: 10)"`
+		}
+	} `graphql:"associatedPullRequests(first: 2)"`
 }
