@@ -20,6 +20,7 @@ plugins:
       - wip
   gitpod-io/ops:
     plugins:
+      - hold
       - wip
 
 config_updater:
