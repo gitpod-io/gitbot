@@ -36,3 +36,9 @@ size:
   l: 90
   xl: 270
   xxl: 520
+
+external_plugins:
+  gitpod-io/ops:
+  - name: needs-rebase
+    events:
+    - pull_request
