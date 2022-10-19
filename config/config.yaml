@@ -59,7 +59,7 @@ tide:
     - do-not-merge/hold
     - do-not-merge/work-in-progress
     - do-not-merge/release-note-label-needed
-    - "cla: pending :hourglass_flowing_sand:"
+    - do-not-merge/cla-pending
   - repos:
     - gitpod-io/ops
     reviewApprovedRequired: true
