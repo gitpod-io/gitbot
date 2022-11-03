@@ -90,26 +90,43 @@ func main() {
 }
 
 func (s *server) markDeployedPR(w http.ResponseWriter, req *http.Request) {
+	var commitSHA string
+	var team string
+	for k, v := range req.URL.Query() {
+		switch k {
+		case "commit":
+			commitSHA = v[0]
+		case "team":
+			team = v[0]
+		default:
+			s.log.Warnf("Unrecognized parameter received: %s", k)
+		}
+	}
+	if team == "" || commitSHA == "" {
+
+		var preconditionFailed struct {
+			Errors []string
+		}
+
+		preconditionFailed.Errors = make([]string, 0, 1)
+		preconditionFailed.Errors = append(preconditionFailed.Errors, fmt.Sprintf("team and commit are required parameters. Team: '%v', commit: '%v'", team, commitSHA))
+
+		s.log.WithFields(
+			logrus.Fields{
+				"team":   team,
+				"commit": commitSHA,
+			},
+		).Error("team and commit are required parameters")
+
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		w.WriteHeader(http.StatusPreconditionFailed)
+		json.NewEncoder(w).Encode(preconditionFailed)
+		return
+	}
+
 	switch req.Method {
 	case "POST":
-		var commitSHA string
-		var team string
-		for k, v := range req.URL.Query() {
-			switch k {
-			case "commit":
-				commitSHA = v[0]
-			case "team":
-				team = v[0]
-			default:
-				s.log.Warnf("Unrecognized parameter received: %s", k)
-			}
-		}
-		if team == "" || commitSHA == "" {
-			w.WriteHeader(http.StatusPreconditionFailed)
-			w.Write([]byte(http.StatusText(http.StatusPreconditionFailed)))
-			s.log.Errorf("team and commit are required parameters. Team: %v, commit: %v", team, commitSHA)
-			break
-		}
 
 		var msg struct {
 			DeployedPRs struct {
