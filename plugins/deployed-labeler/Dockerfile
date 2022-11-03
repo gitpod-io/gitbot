@@ -1,4 +1,4 @@
-FROM golang:1.16.5 AS builder
+FROM golang:1.19.3 AS builder
 
 WORKDIR /src/plugin
 COPY go.mod go.sum ./
