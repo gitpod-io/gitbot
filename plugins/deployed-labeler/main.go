@@ -212,8 +212,12 @@ func (s *server) getMergedPRs(ctx context.Context, commitSHA string) ([]pullRequ
 	var commits []commitNodes
 
 	// we get 100 commits per page
-	// 3x100 = 300 in total
-	for i := 0; i < 3; i++ {
+	// 5x100 = 500 in total
+	//
+	// Note that this value is sensitive to the commit rate of the given repo and the interval at which teams deploy;
+	// if more than 500 commits are merged within a week and a given team only deploys on a weekly basis then some commits
+	// might not be labeled.
+	for i := 0; i < 5; i++ {
 		err := s.gh.Query(ctx, &q, variables)
 		if err != nil {
 			s.log.WithError(err).Error("Error running query.")

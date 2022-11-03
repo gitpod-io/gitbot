@@ -7,7 +7,7 @@ Accepts `POST` requests, while requiring to parameters:
 - `commit`: Commit that has just been deployed to production.
 - `team`: Which team just deployed to production.
 
-`deployed-labeler` will look for the last 100 commits of the repository's default branch, alongside their associated Pull Requests and labels.
+`deployed-labeler` will look for the last 500 commits of the repository's default branch, alongside their associated Pull Requests and labels.
 
 ![image](https://user-images.githubusercontent.com/24193764/139254510-9f8ed8e1-e9ac-4177-b447-49932b804edd.png)
 
