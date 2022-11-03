@@ -1,4 +1,4 @@
-FROM gitpod/workspace-full:commit-f2d623ca9d270c2ce8560d2ca0f9ce71b105aff2
+FROM gitpod/workspace-full:2022-10-30-18-48-35
 
 USER root
 
