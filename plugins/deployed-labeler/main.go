@@ -92,25 +92,20 @@ func main() {
 func (s *server) markDeployedPR(w http.ResponseWriter, req *http.Request) {
 	var commitSHA string
 	var team string
+
 	for k, v := range req.URL.Query() {
 		switch k {
 		case "commit":
 			commitSHA = v[0]
 		case "team":
 			team = v[0]
+
 		default:
 			s.log.Warnf("Unrecognized parameter received: %s", k)
 		}
 	}
+
 	if team == "" || commitSHA == "" {
-
-		var preconditionFailed struct {
-			Errors []string
-		}
-
-		preconditionFailed.Errors = make([]string, 0, 1)
-		preconditionFailed.Errors = append(preconditionFailed.Errors, fmt.Sprintf("team and commit are required parameters. Team: '%v', commit: '%v'", team, commitSHA))
-
 		s.log.WithFields(
 			logrus.Fields{
 				"team":   team,
@@ -118,13 +113,15 @@ func (s *server) markDeployedPR(w http.ResponseWriter, req *http.Request) {
 			},
 		).Error("team and commit are required parameters")
 
-		w.Header().Set("Content-Type", "application/json; charset=utf-8")
-		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.WriteHeader(http.StatusPreconditionFailed)
-		json.NewEncoder(w).Encode(preconditionFailed)
+		enc := json.NewEncoder(w)
+		enc.SetIndent("", "  ")
+		enc.Encode(map[string]string{
+			"error": "team and commit are required parameters",
+		})
 		return
 	}
-
+	var err error
 	switch req.Method {
 	case "GET":
 		var msg struct {
@@ -132,23 +129,38 @@ func (s *server) markDeployedPR(w http.ResponseWriter, req *http.Request) {
 				Labeled   []string `json:"labeled"`
 				Unlabeled []string `json:"unlabeled"`
 			}
-			Errors []error `json:"errors"`
+			Error string `json:"error"`
 		}
-		msg.PRs.Labeled, msg.PRs.Unlabeled, msg.Errors = s.handleGetUnmarkedPRs(req.Context(), commitSHA, team)
+
+		msg.PRs.Labeled, msg.PRs.Unlabeled, err = s.handleGetUnmarkedPRs(req.Context(), commitSHA, team)
+		if err != nil {
+			msg.Error = err.Error()
+			w.WriteHeader(http.StatusUnprocessableEntity)
+		}
 
 		enc := json.NewEncoder(w)
 		enc.SetIndent("", "  ")
 		enc.Encode(msg)
 
 	case "POST":
+		var errs []error
 		var msg struct {
 			DeployedPRs struct {
 				Team []string `json:"team"`
 				All  []string `json:"all"`
 			} `json:"deployedPRs"`
-			Errors []error `json:"errors"`
+			Errors []string `json:"errors"`
 		}
-		msg.DeployedPRs.Team, msg.DeployedPRs.All, msg.Errors = s.handleMarkDeployedPRs(req.Context(), commitSHA, team)
+		msg.DeployedPRs.Team, msg.DeployedPRs.All, errs = s.handleMarkDeployedPRs(req.Context(), commitSHA, team)
+
+		msg.Errors = make([]string, 0, len(errs))
+		for _, err := range errs {
+			msg.Errors = append(msg.Errors, err.Error())
+		}
+
+		if len(msg.Errors) > 0 {
+			w.WriteHeader(http.StatusUnprocessableEntity)
+		}
 
 		enc := json.NewEncoder(w)
 		enc.SetIndent("", "  ")
@@ -170,13 +182,15 @@ func (s *server) handleMarkDeployedPRs(ctx context.Context, commitSHA, team stri
 	return s.updatePullRequests(prs, team)
 }
 
-func (s *server) handleGetUnmarkedPRs(ctx context.Context, commitSHA, team string) (labeledPRs, unlabeledPRs []string, errors []error) {
+func (s *server) handleGetUnmarkedPRs(ctx context.Context, commitSHA, team string) (labeledPRs, unlabeledPRs []string, err error) {
 	prs, err := s.getMergedPRs(ctx, commitSHA)
 	if err != nil {
-		return nil, nil, []error{err}
+		return nil, nil, err
 	}
 
-	return s.findTeamPullRequests(prs, team)
+	labeledPRs, unlabeledPRs = s.findTeamPullRequests(prs, team)
+
+	return labeledPRs, unlabeledPRs, nil
 }
 
 const (
@@ -233,7 +247,7 @@ func (s *server) updatePullRequests(prs []pullRequest, team string) (teamDeploye
 }
 
 // Find labeled and unlabeled pull requests for the given team.
-func (s *server) findTeamPullRequests(prs []pullRequest, team string) (labeled, unlabeled []string, errs []error) {
+func (s *server) findTeamPullRequests(prs []pullRequest, team string) (labeled, unlabeled []string) {
 	for _, pr := range prs {
 
 		lblTeam := teamLabel(team)
