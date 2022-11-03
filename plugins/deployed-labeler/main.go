@@ -28,6 +28,7 @@ type options struct {
 	dryRun     bool
 	github     prowflagutil.GitHubOptions
 	hmacSecret string
+	logLevel   string
 }
 
 func newOptions() *options {
@@ -36,6 +37,7 @@ func newOptions() *options {
 	fs.IntVar(&o.port, "port", 8080, "Port to listen to.")
 	fs.BoolVar(&o.dryRun, "dry-run", false, "Dry run for testing (uses API tokens but does not mutate).")
 	fs.StringVar(&o.hmacSecret, "hmac", "/etc/webhook/hmac", "Path to the file containing the GitHub HMAC secret.")
+	fs.StringVar(&o.logLevel, "log-level", "debug", "Application log level")
 
 	for _, group := range []flagutil.OptionGroup{&o.github} {
 		group.AddFlags(fs)
@@ -56,7 +58,7 @@ func main() {
 	o := newOptions()
 
 	logrus.SetFormatter(&logrus.JSONFormatter{})
-	logrus.SetLevel(logrus.DebugLevel)
+	logrus.ParseLevel(o.logLevel)
 	log := logrus.StandardLogger().WithField("plugin", pluginName)
 
 	secretAgent := &secret.Agent{}
@@ -92,14 +94,12 @@ func main() {
 func (s *server) markDeployedPR(w http.ResponseWriter, req *http.Request) {
 	var commitSHA string
 	var team string
-
 	for k, v := range req.URL.Query() {
 		switch k {
 		case "commit":
 			commitSHA = v[0]
 		case "team":
 			team = v[0]
-
 		default:
 			s.log.Warnf("Unrecognized parameter received: %s", k)
 		}
@@ -240,7 +240,7 @@ func (s *server) updatePullRequests(prs []pullRequest, team string) (teamDeploye
 				errs = append(errs, err)
 			}
 		} else {
-			s.log.Debugf("PR %v already has label %v", pr.Number, labelDeployed)
+			s.log.Infof("PR %v already has label %v", pr.Number, labelDeployed)
 		}
 	}
 	return
@@ -252,7 +252,7 @@ func (s *server) findTeamPullRequests(prs []pullRequest, team string) (labeled, 
 
 		lblTeam := teamLabel(team)
 		if _, belongs := pr.Labels[lblTeam]; !belongs {
-			s.log.Debugf("PR %v does not belong to %v, skipping it", pr.Number, team)
+			s.log.Infof("PR %v does not belong to %v, skipping it", pr.Number, team)
 			continue
 		}
 
@@ -316,6 +316,14 @@ func (s *server) getMergedPRs(ctx context.Context, commitSHA string) ([]pullRequ
 				pr.Labels[string(lbl.Name)] = struct{}{}
 			}
 			res = append(res, pr)
+
+			s.log.WithFields(
+				logrus.Fields{
+					"Number": pr.Number,
+					"URL":    pr.URL,
+					"Labels": pr.Labels,
+				},
+			).Info("Added pull request for commit %s", c)
 		}
 	}
 
