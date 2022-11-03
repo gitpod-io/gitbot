@@ -126,8 +126,21 @@ func (s *server) markDeployedPR(w http.ResponseWriter, req *http.Request) {
 	}
 
 	switch req.Method {
-	case "POST":
+	case "GET":
+		var msg struct {
+			PRs struct {
+				Labeled   []string `json:"labeled"`
+				Unlabeled []string `json:"unlabeled"`
+			}
+			Errors []error `json:"errors"`
+		}
+		msg.PRs.Labeled, msg.PRs.Unlabeled, msg.Errors = s.handleGetUnmarkedPRs(req.Context(), commitSHA, team)
 
+		enc := json.NewEncoder(w)
+		enc.SetIndent("", "  ")
+		enc.Encode(msg)
+
+	case "POST":
 		var msg struct {
 			DeployedPRs struct {
 				Team []string `json:"team"`
@@ -155,6 +168,15 @@ func (s *server) handleMarkDeployedPRs(ctx context.Context, commitSHA, team stri
 	}
 
 	return s.updatePullRequests(prs, team)
+}
+
+func (s *server) handleGetUnmarkedPRs(ctx context.Context, commitSHA, team string) (labeledPRs, unlabeledPRs []string, errors []error) {
+	prs, err := s.getMergedPRs(ctx, commitSHA)
+	if err != nil {
+		return nil, nil, []error{err}
+	}
+
+	return s.findTeamPullRequests(prs, team)
 }
 
 const (
@@ -204,7 +226,27 @@ func (s *server) updatePullRequests(prs []pullRequest, team string) (teamDeploye
 				errs = append(errs, err)
 			}
 		} else {
-			s.log.Infof("PR %v already has label %v", pr.Number, labelDeployed)
+			s.log.Debugf("PR %v already has label %v", pr.Number, labelDeployed)
+		}
+	}
+	return
+}
+
+// Find labeled and unlabeled pull requests for the given team.
+func (s *server) findTeamPullRequests(prs []pullRequest, team string) (labeled, unlabeled []string, errs []error) {
+	for _, pr := range prs {
+
+		lblTeam := teamLabel(team)
+		if _, belongs := pr.Labels[lblTeam]; !belongs {
+			s.log.Debugf("PR %v does not belong to %v, skipping it", pr.Number, team)
+			continue
+		}
+
+		teamDeployedLabel := deployedLabel(team)
+		if _, hasLabel := pr.Labels[teamDeployedLabel]; !hasLabel {
+			unlabeled = append(unlabeled, pr.URL)
+		} else {
+			labeled = append(labeled, pr.URL)
 		}
 	}
 	return
