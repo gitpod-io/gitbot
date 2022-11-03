@@ -51,9 +51,15 @@ docker run \
 
 And `curl` the endpoint
 
-```sh
-curl -XPOST "http://localhost:8080/deployed?commit=01f4897c5323433e7831ca948f7d340c3c762885&team=webapp"
-```
+- Check for unlabeled pull requests:
+    ```sh
+    curl "http://localhost:8080/deployed?commit=01f4897c5323433e7831ca948f7d340c3c762885&team=webapp"
+    ```
+
+- Upload pull request labels:
+    ```sh
+    curl -XPOST "http://localhost:8080/deployed?commit=01f4897c5323433e7831ca948f7d340c3c762885&team=webapp"
+    ```
 
 ## Deploying
 
