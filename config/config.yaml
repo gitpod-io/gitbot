@@ -93,7 +93,7 @@ tide:
         repos:
           "gitpod-io/gitpod":
             required-contexts:
-             - "ci/werft/build"
+             - "build-gitpod"
 
 sinker:
   resync_period: 1m
