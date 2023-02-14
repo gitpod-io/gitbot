@@ -45,10 +45,10 @@ plank:
 tide:
   target_url: https://prow.gitpod-dev.com/tide
   merge_method:
-    gitpod-io/gitpod: rebase
-    gitpod-io/gitpod-test-repo: rebase
-    gitpod-io/gitbot: rebase
-    gitpod-io/ops: rebase
+    gitpod-io/gitpod: squash
+    gitpod-io/gitpod-test-repo: squash
+    gitpod-io/gitbot: squash
+    gitpod-io/ops: squash
   queries:
   - repos:
     - gitpod-io/gitpod
