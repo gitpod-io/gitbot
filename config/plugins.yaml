@@ -12,6 +12,10 @@ plugins:
       - release-note
       - size
       - wip
+  gitpod-io/gitpod-dedicated:
+    plugins:
+      - hold
+      - wip
   gitpod-io/gitpod-test-repo:
     plugins:
       - hold
