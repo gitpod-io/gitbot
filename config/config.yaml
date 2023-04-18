@@ -60,7 +60,6 @@ tide:
     - needs-rebase
     - do-not-merge/hold
     - do-not-merge/work-in-progress
-    - do-not-merge/release-note-label-needed
     - do-not-merge/cla-pending
   - repos:
     - gitpod-io/ops
@@ -77,7 +76,6 @@ tide:
     - needs-rebase
     - do-not-merge/hold
     - do-not-merge/work-in-progress
-    - do-not-merge/release-note-label-needed
   - repos:
     - gitpod-io/gitbot
     reviewApprovedRequired: true
@@ -86,7 +84,6 @@ tide:
     - needs-rebase
     - do-not-merge/hold
     - do-not-merge/work-in-progress
-    - do-not-merge/release-note-label-needed
   context_options:
     # Use branch protection options to define required and optional contexts
     from-branch-protection: true
