@@ -3,13 +3,11 @@ plugins:
     plugins:
       - config-updater
       - hold
-      - release-note
       - size
       - wip
   gitpod-io/gitpod:
     plugins:
       - hold
-      - release-note
       - size
       - wip
   gitpod-io/gitpod-dedicated:
@@ -19,7 +17,6 @@ plugins:
   gitpod-io/gitpod-test-repo:
     plugins:
       - hold
-      - release-note
       - size
       - wip
   gitpod-io/ops:
