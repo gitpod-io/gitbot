@@ -284,16 +284,16 @@ func (s *server) getMergedPRs(ctx context.Context, commitSHA string) ([]pullRequ
 	var q query
 	var commits []commitNodes
 
-	// we get 100 commits per page
-	// 5x100 = 500 in total
+	// we get 10 commits per page
+	// 10x50 = 500 in total
 	//
 	// Note that this value is sensitive to the commit rate of the given repo and the interval at which teams deploy;
 	// if more than 500 commits are merged within a week and a given team only deploys on a weekly basis then some commits
 	// might not be labeled.
-	for i := 0; i < 5; i++ {
+	for i := 0; i < 50; i++ {
 		err := s.gh.Query(ctx, &q, variables)
 		if err != nil {
-			s.log.WithError(err).Error("Error running query.")
+			s.log.WithField("query", q).WithError(err).Error("Error running query.")
 			return nil, err
 		}
 
@@ -346,7 +346,7 @@ type query struct {
 							HasNextPage bool
 						}
 						Nodes []commitNodes
-					} `graphql:"history(first: 100, after: $cursor)"`
+					} `graphql:"history(first: 10, after: $cursor)"`
 				} `graphql:"... on Commit"`
 			} `graphql:"object(oid: $commit)"`
 		} `graphql:"repository(name: $repo)"`
