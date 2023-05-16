@@ -89,7 +89,7 @@ spec:
       terminationGracePeriodSeconds: 180
       containers:
         - name: deployed-labeler
-          image: eu.gcr.io/gitpod-core-dev/prow/deployed-labeler:5
+          image: eu.gcr.io/gitpod-core-dev/prow/deployed-labeler:6
           imagePullPolicy: Always
           args:
             - --dry-run=false
