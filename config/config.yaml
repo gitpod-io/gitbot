@@ -46,14 +46,14 @@ tide:
   target_url: https://prow.gitpod-dev.com/tide
   merge_method:
     gitpod-io/gitpod: squash
-    gitpod-io/gitpod-dedicated: squash
+#    gitpod-io/gitpod-dedicated: squash
     gitpod-io/gitpod-test-repo: squash
     gitpod-io/gitbot: squash
     gitpod-io/ops: squash
   queries:
   - repos:
     - gitpod-io/gitpod
-    - gitpod-io/gitpod-dedicated
+#    - gitpod-io/gitpod-dedicated
     reviewApprovedRequired: true
     missingLabels:
     # no one's setting this label yet because we don't have the external needs-rebase plugin set up yet
